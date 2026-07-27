@@ -1,0 +1,26 @@
+{
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.Monitor",
+      "description": "Ver sistemas conectados y ejecuciones de iflows"
+    },
+    {
+      "name": "$XSAPPNAME.ConnectionAdmin",
+      "description": "Crear y eliminar conexiones a tenants de SAP Integration Suite"
+    }
+  ],
+  "attributes": [],
+  "role-templates": [
+    {
+      "name": "Monitor",
+      "description": "Monitorizar ejecuciones de iflows",
+      "scope-references": ["$XSAPPNAME.Monitor"]
+    },
+    {
+      "name": "ConnectionAdmin",
+      "description": "Administrar conexiones a tenants de SAP Integration Suite",
+      "scope-references": ["$XSAPPNAME.Monitor", "$XSAPPNAME.ConnectionAdmin"]
+    }
+  ],
+  "authorities-inheritance": false
+}

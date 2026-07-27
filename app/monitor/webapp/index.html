@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitoring Integration Suite</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .sapUiComponentContainer,
+    [id$="-uiarea"],
+    .sapUiView,
+    .sapMNav,
+    .sapMNavItem { height: 100%; }
+  </style>
+  <script
+    id="sap-ui-bootstrap"
+    src="https://sapui5.hana.ondemand.com/resources/sap-ui-core.js"
+    data-sap-ui-theme="sap_horizon"
+    data-sap-ui-resourceroots='{"monitoringis.monitor": "./"}'
+    data-sap-ui-oninit="module:sap/ui/core/ComponentSupport"
+    data-sap-ui-compatVersion="edge"
+    data-sap-ui-async="true"
+    data-sap-ui-frameOptions="trusted">
+  </script>
+</head>
+<body class="sapUiBody" id="content" style="height: 100%">
+  <div data-sap-ui-component data-name="monitoringis.monitor" data-id="container" data-settings='{"id" : "monitoringis.monitor", "height": "100%", "width": "100%"}' style="height: 100%"></div>
+</body>
+</html>

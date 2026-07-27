@@ -1,0 +1,43 @@
+{
+  "name": "Monitoring_IS",
+  "version": "1.0.0",
+  "dependencies": {
+    "@sap/cds": "^9",
+    "@sap/xssec": "^4",
+    "@sap-cloud-sdk/connectivity": "^4",
+    "@sap-cloud-sdk/http-client": "^4",
+    "@sap-cloud-sdk/resilience": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^2.4",
+    "@sap/cds-dk": "^9"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch --exclude default-env.json"
+  },
+  "private": true,
+  "cds": {
+    "requires": {
+      "[production]": {
+        "auth": "xsuaa"
+      },
+      "auth": {
+        "kind": "mocked",
+        "users": {
+          "alice": { "roles": ["Monitor", "ConnectionAdmin"] },
+          "bob": { "roles": ["Monitor"] }
+        }
+      },
+      "connectivity": true,
+      "destinations": true,
+      "CloudIntegrationAPI": {
+        "kind": "odata-v2",
+        "model": "srv/external/CloudIntegrationAPI",
+        "credentials": {
+          "path": "/api/v1"
+        }
+      }
+    }
+  }
+}

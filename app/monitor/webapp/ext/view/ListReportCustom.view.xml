@@ -1,0 +1,38 @@
+<mvc:View
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:macros="sap.fe.macros"
+  controllerName="monitoringis.monitor.ext.controller.ListReportCustom"
+  displayBlock="true"
+  height="100%"
+>
+  <Page title="{i18n>appTitle}" showNavButton="false" enableScrolling="true">
+    <content>
+      <VBox height="100%">
+        <Toolbar class="sapUiSmallMarginBottom">
+          <Label text="{i18n>systemLabel}" labelFor="systemSelect" class="sapUiTinyMarginEnd"/>
+          <Select id="systemSelect" width="18rem" items="{path: '/Systems'}" change=".onSystemChange">
+            <core:Item key="{Name}" text="{DisplayName}"/>
+          </Select>
+          <ToolbarSpacer/>
+          <Button id="newConnectionButton" text="{i18n>newConnection}" type="Emphasized" press=".onNewConnection"/>
+        </Toolbar>
+
+        <macros:FilterBar
+          id="fb"
+          contextPath="/MessageProcessingLogs"
+          metaPath="@com.sap.vocabularies.UI.v1.SelectionFields"
+          search=".onSearch"
+        />
+
+        <macros:Table
+          id="tbl"
+          contextPath="/MessageProcessingLogs"
+          metaPath="@com.sap.vocabularies.UI.v1.LineItem"
+          filterBar="fb"
+        />
+      </VBox>
+    </content>
+  </Page>
+</mvc:View>
