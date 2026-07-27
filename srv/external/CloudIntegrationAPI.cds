@@ -1,26 +1,32 @@
 /**
- * Handwritten shape of the SAP Cloud Integration OData V2 API (Manage Integration Content
- * + Message Processing Logs packages), covering only the fields this app needs.
- * To be replaced/refined via `cds import <tenant>/api/v1/$metadata` once a real tenant is available.
+ * Shape of the SAP Cloud Integration OData V2 API (Manage Integration Content +
+ * Message Processing Logs packages), covering only the fields this app needs.
+ * Field names for MessageProcessingLogs cross-checked against a real tenant's
+ * /api/v1/$metadata (there is no plain "ComponentName" — it's split into
+ * PreviousComponentName/LocalComponentName/OriginComponentName).
  */
 @cds.external
 service CloudIntegrationAPI @(path: '/api/v1') {
 
   @readonly entity MessageProcessingLogs {
-    key MessageGuid           : String;
-        CorrelationId         : String;
-        ApplicationMessageId  : String;
-        ApplicationMessageType: String;
-        LogStart              : DateTime;
-        LogEnd                : DateTime;
-        Sender                : String;
-        Receiver              : String;
-        IntegrationFlowName   : String;
-        Status                : String;
-        LogLevel              : String;
-        ComponentName         : String;
-        TransactionId         : String;
-        CustomStatus          : String;
+    key MessageGuid            : String;
+        CorrelationId          : String;
+        ApplicationMessageId   : String;
+        ApplicationMessageType : String;
+        PredecessorMessageGuid : String;
+        LogStart               : DateTime;
+        LogEnd                 : DateTime;
+        Sender                 : String;
+        Receiver               : String;
+        IntegrationFlowName    : String;
+        Status                 : String;
+        LogLevel               : String;
+        CustomStatus           : String;
+        TransactionId          : String;
+        PreviousComponentName  : String;
+        LocalComponentName     : String;
+        OriginComponentName    : String;
+        AlternateWebLink       : String;
   }
 
   @readonly entity IntegrationRuntimeArtifacts {

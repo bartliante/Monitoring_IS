@@ -15,7 +15,7 @@ annotate service.MessageProcessingLogs with @(
     CustomTo
   ],
   UI.LineItem: [
-    { Value: Status,               Label: 'Estado' },
+    { Value: Status,               Label: 'Estado', Criticality: StatusCriticality },
     { Value: IntegrationFlowName,  Label: 'Artefacto' },
     { Value: LogStart,             Label: 'Inicio' },
     { Value: LogEnd,               Label: 'Fin' },
@@ -25,7 +25,36 @@ annotate service.MessageProcessingLogs with @(
     { Value: CorrelationId,         Label: 'Correlation ID' },
     { Value: ApplicationMessageId,  Label: 'Application Message ID' },
     { Value: LogLevel,              Label: 'Nivel de log' }
-  ]
+  ],
+  UI.Facets: [
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'GeneralInformation',
+      Label : 'Información general',
+      Target: '@UI.FieldGroup#GeneralInformation'
+    }
+  ],
+  UI.FieldGroup #GeneralInformation: {
+    Data: [
+      { Value: Status,                Criticality: StatusCriticality },
+      { Value: IntegrationFlowName },
+      { Value: LogStart },
+      { Value: LogEnd },
+      { Value: Sender },
+      { Value: Receiver },
+      { Value: CorrelationId },
+      { Value: ApplicationMessageId },
+      { Value: ApplicationMessageType },
+      { Value: PredecessorMessageGuid },
+      { Value: LocalComponentName },
+      { Value: PreviousComponentName },
+      { Value: OriginComponentName },
+      { Value: TransactionId },
+      { Value: CustomStatus },
+      { Value: LogLevel },
+      { $Type: 'UI.DataFieldWithUrl', Label: 'Ver en Integration Suite', Value: AlternateWebLink, Url: AlternateWebLink }
+    ]
+  }
 ) {
   Status               @title: 'Estado';
   IntegrationFlowName  @title: 'Artefacto' @Common.ValueList: {
@@ -35,10 +64,18 @@ annotate service.MessageProcessingLogs with @(
       { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: IntegrationFlowName, ValueListProperty: 'Name' }
     ]
   };
-  SearchId    @title: 'ID mensaje / correlation';
-  TimePreset  @title: 'Periodo';
-  CustomFrom  @title: 'Desde';
-  CustomTo    @title: 'Hasta';
+  SearchId               @title: 'ID mensaje / correlation';
+  TimePreset             @title: 'Periodo';
+  CustomFrom             @title: 'Desde';
+  CustomTo               @title: 'Hasta';
+  ApplicationMessageType @title: 'Tipo de mensaje';
+  PredecessorMessageGuid @title: 'Message GUID predecesor';
+  LocalComponentName     @title: 'Componente local';
+  PreviousComponentName  @title: 'Componente anterior';
+  OriginComponentName    @title: 'Componente de origen';
+  TransactionId          @title: 'Transaction ID';
+  CustomStatus           @title: 'Estado personalizado';
+  AlternateWebLink       @title: 'Enlace en Integration Suite';
 }
 
 annotate service.Artifacts with @(UI.HeaderInfo: { TypeName: 'Artefacto', TypeNamePlural: 'Artefactos' });

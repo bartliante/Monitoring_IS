@@ -21,8 +21,10 @@ const PRESET_TO_MS = {
 // trial tenant). So we always list the actual remote columns explicitly
 // instead of forwarding the incoming (possibly column-less) query as is.
 const REMOTE_COLUMNS = [
-  'MessageGuid', 'CorrelationId', 'ApplicationMessageId', 'IntegrationFlowName',
-  'Status', 'LogLevel', 'LogStart', 'LogEnd', 'Sender', 'Receiver'
+  'MessageGuid', 'CorrelationId', 'ApplicationMessageId', 'ApplicationMessageType', 'PredecessorMessageGuid',
+  'IntegrationFlowName', 'Status', 'LogLevel', 'LogStart', 'LogEnd', 'Sender', 'Receiver',
+  'CustomStatus', 'TransactionId', 'PreviousComponentName', 'LocalComponentName', 'OriginComponentName',
+  'AlternateWebLink'
 ]
 
 // Pulls every top-level (AND-combined) comparison on `column` out of a flat CQN
@@ -104,4 +106,20 @@ function translateMessageProcessingLogsQuery(query, remoteEntity) {
   return q
 }
 
-module.exports = { translateMessageProcessingLogsQuery }
+// com.sap.vocabularies.UI.v1.CriticalityType values, used to color the Status
+// column (see @UI.LineItem's Criticality in monitor-service-ui.cds):
+// Neutral=0, Negative=1, Critical=2, Positive=3.
+const STATUS_CRITICALITY = {
+  COMPLETED: 3,  // green
+  FAILED: 1,     // red
+  ESCALATED: 1,  // red — an escalated message is still a failure needing attention
+  RETRY: 2,      // orange — transient, being retried
+  DISCARDED: 0,  // neutral — no further processing intended
+  PROCESSING: 0  // neutral — still in flight
+}
+
+function criticalityForStatus(status) {
+  return STATUS_CRITICALITY[status] ?? 0
+}
+
+module.exports = { translateMessageProcessingLogsQuery, criticalityForStatus }

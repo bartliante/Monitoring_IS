@@ -33,6 +33,12 @@
   },
   "sap.ui5": {
     "flexEnabled": true,
+    "rootView": {
+      "viewName": "sap.fe.core.rootView.Fcl",
+      "type": "XML",
+      "async": true,
+      "id": "appRootView"
+    },
     "dependencies": {
       "minUI5Version": "1.120.0",
       "libs": {
@@ -40,6 +46,7 @@
         "sap.ui.core": {},
         "sap.ui.layout": {},
         "sap.f": {},
+        "sap.uxap": {},
         "sap.fe.core": {},
         "sap.fe.templates": {},
         "sap.fe.macros": {}
@@ -66,12 +73,22 @@
       "css": []
     },
     "routing": {
-      "config": {},
+      "config": {
+        "routerClass": "sap.f.routing.Router",
+        "flexibleColumnLayout": {
+          "defaultTwoColumnLayoutType": "TwoColumnsMidExpanded"
+        }
+      },
       "routes": [
         {
           "pattern": ":?query:",
           "name": "MessageProcessingLogsList",
-          "target": "MessageProcessingLogsList"
+          "target": ["MessageProcessingLogsList"]
+        },
+        {
+          "pattern": "MessageProcessingLogs({key}):?query:",
+          "name": "MessageProcessingLogsDetail",
+          "target": ["MessageProcessingLogsList", "MessageProcessingLogsDetail"]
         }
       ],
       "targets": {
@@ -79,10 +96,32 @@
           "type": "Component",
           "id": "MessageProcessingLogsList",
           "name": "sap.fe.core.fpm",
+          "controlAggregation": "beginColumnPages",
+          "contextPattern": "",
           "options": {
             "settings": {
               "contextPath": "/MessageProcessingLogs",
-              "viewName": "monitoringis.monitor.ext.view.ListReportCustom"
+              "viewName": "monitoringis.monitor.ext.view.ListReportCustom",
+              "navigation": {
+                "MessageProcessingLogs": {
+                  "detail": {
+                    "route": "MessageProcessingLogsDetail"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "MessageProcessingLogsDetail": {
+          "type": "Component",
+          "id": "MessageProcessingLogsDetail",
+          "name": "sap.fe.core.fpm",
+          "controlAggregation": "midColumnPages",
+          "contextPattern": "/MessageProcessingLogs({key})",
+          "options": {
+            "settings": {
+              "contextPath": "/MessageProcessingLogs",
+              "viewName": "monitoringis.monitor.ext.view.MessageProcessingLogDetail"
             }
           }
         }

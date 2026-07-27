@@ -1,0 +1,89 @@
+<mvc:View
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:macros="sap.fe.macros"
+  xmlns:uxap="sap.uxap"
+  controllerName="monitoringis.monitor.ext.controller.MessageProcessingLogDetail"
+  displayBlock="true"
+  height="100%"
+>
+  <uxap:ObjectPageLayout id="opLayout" height="100%">
+    <uxap:headerTitle>
+      <uxap:ObjectPageDynamicHeaderTitle>
+        <uxap:heading>
+          <Title text="{MessageGuid}" wrapping="true"/>
+        </uxap:heading>
+      </uxap:ObjectPageDynamicHeaderTitle>
+    </uxap:headerTitle>
+    <uxap:sections>
+
+      <uxap:ObjectPageSection title="{i18n>sectionGeneralInfo}">
+        <uxap:subSections>
+          <uxap:ObjectPageSubSection>
+            <macros:Form metaPath="@com.sap.vocabularies.UI.v1.FieldGroup#GeneralInformation"/>
+          </uxap:ObjectPageSubSection>
+        </uxap:subSections>
+      </uxap:ObjectPageSection>
+
+      <uxap:ObjectPageSection title="{i18n>sectionErrorDetail}" visible="{= %{Status} === 'FAILED' }">
+        <uxap:subSections>
+          <uxap:ObjectPageSubSection>
+            <TextArea
+              id="errorTraceArea"
+              value="{errorTrace>/text}"
+              editable="false"
+              growing="true"
+              growingMaxLines="25"
+              width="100%"
+            />
+          </uxap:ObjectPageSubSection>
+        </uxap:subSections>
+      </uxap:ObjectPageSection>
+
+      <uxap:ObjectPageSection title="{i18n>sectionAttachments}">
+        <uxap:subSections>
+          <uxap:ObjectPageSubSection>
+            <Text text="{i18n>noAttachments}" visible="{= !(${attachments>/}.length > 0) }" class="sapUiSmallMargin"/>
+            <IconTabBar id="attachmentsTabBar" items="{attachments>/}" visible="{= ${attachments>/}.length > 0 }">
+              <items>
+                <IconTabFilter text="{attachments>Name}" key="{attachments>Id}">
+                  <TextArea
+                    value="{attachments>Content}"
+                    editable="false"
+                    growing="true"
+                    growingMaxLines="25"
+                    width="100%"
+                  />
+                </IconTabFilter>
+              </items>
+            </IconTabBar>
+          </uxap:ObjectPageSubSection>
+        </uxap:subSections>
+      </uxap:ObjectPageSection>
+
+      <uxap:ObjectPageSection title="{i18n>sectionAiSuggestion}" visible="{= %{Status} === 'FAILED' }">
+        <uxap:subSections>
+          <uxap:ObjectPageSubSection>
+            <VBox>
+              <Button
+                text="{i18n>analyzeWithAI}"
+                type="Emphasized"
+                press=".onAnalyzeWithAI"
+                class="sapUiSmallMarginBottom"
+              />
+              <MessageStrip
+                text="{i18n>aiNotImplementedText}"
+                type="Information"
+                showIcon="true"
+                class="sapUiSmallMarginBottom"
+              />
+              <Button text="{i18n>applyFixAndDeploy}" enabled="false"/>
+            </VBox>
+          </uxap:ObjectPageSubSection>
+        </uxap:subSections>
+      </uxap:ObjectPageSection>
+
+    </uxap:sections>
+  </uxap:ObjectPageLayout>
+</mvc:View>

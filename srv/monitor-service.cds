@@ -37,16 +37,29 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
 
   @readonly
   entity MessageProcessingLogs {
-    key MessageGuid          : String;
-        CorrelationId        : String;
-        ApplicationMessageId : String;
-        IntegrationFlowName  : String;
-        Status               : Status;
-        LogLevel             : String;
-        LogStart             : DateTime;
-        LogEnd               : DateTime;
-        Sender               : String;
-        Receiver             : String;
+    key MessageGuid            : String;
+        CorrelationId          : String;
+        ApplicationMessageId   : String;
+        ApplicationMessageType : String;
+        PredecessorMessageGuid : String;
+        IntegrationFlowName    : String;
+        Status                 : Status;
+        LogLevel               : String;
+        LogStart               : DateTime;
+        LogEnd                 : DateTime;
+        Sender                 : String;
+        Receiver               : String;
+        CustomStatus           : String;
+        TransactionId          : String;
+        PreviousComponentName  : String;
+        LocalComponentName     : String;
+        OriginComponentName    : String;
+        AlternateWebLink       : String;
+
+        // drives the traffic-light color of the Status column (see @UI.LineItem
+        // in monitor-service-ui.cds) — computed server-side from Status, not a
+        // real remote field.
+        virtual StatusCriticality : Integer;
 
         // filter-only fields, rendered as regular filter bar fields by Fiori Elements
         SearchId   : String;
@@ -54,6 +67,19 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
         CustomFrom : DateTime;
         CustomTo   : DateTime;
   }
+
+  // Detalle del error: raw text of MessageProcessingLogs('id')/ErrorInformation/$value.
+  function getErrorTrace( messageGuid : String ) returns String;
+
+  // Adjuntos: list of MessageProcessingLogs('id')/Attachments plus each one's
+  // content (fetched from its media_src), so the UI can render one tab per
+  // attachment without a second round-trip per tab.
+  function getAttachments( messageGuid : String ) returns array of {
+    Id          : String;
+    Name        : String;
+    ContentType : String;
+    Content     : String;
+  };
 
   @requires: 'ConnectionAdmin'
   action createConnection(

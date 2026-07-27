@@ -1,4 +1,5 @@
 const cds = require('@sap/cds')
+const { executeHttpRequest } = require('@sap-cloud-sdk/http-client')
 const destinationsAdmin = require('./destinations-admin')
 
 // RemoteService connections keyed by destination name. Only used (and only
@@ -41,4 +42,24 @@ function invalidate(destinationName) {
   connections.delete(destinationName)
 }
 
-module.exports = { getRemoteFor, invalidate }
+// For endpoints that aren't plain entity CRUD (media/stream resources like
+// ErrorInformation/$value or Attachments/$value, or convenience params like
+// $format=json) there's no CQN to build — go around the RemoteService/CQN
+// layer entirely and call the destination directly via Cloud SDK's HTTP
+// client. Mirrors getRemoteFor's local-vs-BTP split: BTP resolves fully by
+// name (its own token handling); local passes the same inline
+// url/auth/token object used elsewhere, for the same reasons as getRemoteFor.
+async function rawGet(destinationName, urlOrPath) {
+  const destination = destinationsAdmin.hasRealDestinationService()
+    ? { destinationName }
+    : await destinationsAdmin.resolveLocalCredentials(destinationName)
+
+  const staticCredentials = cds.env.requires.CloudIntegrationAPI.credentials
+  const isAbsolute = /^https?:\/\//i.test(urlOrPath)
+  const url = isAbsolute ? urlOrPath : `${staticCredentials.path || ''}${urlOrPath}`
+
+  const response = await executeHttpRequest(destination, { method: 'get', url, responseType: 'text' })
+  return response.data
+}
+
+module.exports = { getRemoteFor, invalidate, rawGet }
