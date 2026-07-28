@@ -1,8 +1,9 @@
 sap.ui.define([
   "sap/fe/core/PageController",
   "sap/ui/model/json/JSONModel",
-  "sap/m/MessageToast"
-], function (PageController, JSONModel, MessageToast) {
+  "sap/m/MessageToast",
+  "sap/m/MessageBox"
+], function (PageController, JSONModel, MessageToast, MessageBox) {
   "use strict";
 
   const SYSTEM_STORAGE_KEY = "monitoringIS.system";
@@ -18,6 +19,7 @@ sap.ui.define([
 
       this.getView().setModel(new JSONModel({ text: "" }), "errorTrace");
       this.getView().setModel(new JSONModel([]), "attachments");
+      this.getView().setModel(new JSONModel({}), "aiSuggestion");
 
       this._sLastMessageGuid = null;
       this.getView().attachModelContextChange(this._onContextChange, this);
@@ -32,6 +34,7 @@ sap.ui.define([
       if (!sMessageGuid || sMessageGuid === this._sLastMessageGuid) return;
       this._sLastMessageGuid = sMessageGuid;
 
+      this.getView().getModel("aiSuggestion").setData({});
       this._loadErrorTrace(sMessageGuid, sStatus);
       this._loadAttachments(sMessageGuid);
     },
@@ -73,8 +76,78 @@ sap.ui.define([
         .catch(() => oAttachmentsModel.setData([]));
     },
 
+    // Ensures the OData V4 model carries the currently-selected system on its
+    // headers before an action call — same robustness reason _callFunction
+    // re-reads it from sessionStorage rather than assuming it's still set.
+    _applySystemHeader: function (oModel) {
+      const sSystem = window.sessionStorage.getItem(SYSTEM_STORAGE_KEY);
+      if (sSystem) oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sSystem });
+    },
+
     onAnalyzeWithAI: function () {
-      MessageToast.show(this.getView().getModel("i18n").getResourceBundle().getText("aiFeatureNotImplemented"));
+      const oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
+      const oAiModel = this.getView().getModel("aiSuggestion");
+      const sMessageGuid = this._sLastMessageGuid;
+      if (!sMessageGuid) return;
+
+      const oModel = this.getView().getModel();
+      this._applySystemHeader(oModel);
+
+      oAiModel.setData({ busy: true });
+
+      const oOperation = oModel.bindContext("/analyzeError(...)");
+      oOperation.setParameter("messageGuid", sMessageGuid);
+
+      oOperation.execute()
+        .then(() => {
+          const oResult = oOperation.getBoundContext().getObject();
+          oAiModel.setData({
+            busy: false,
+            diagnosis: oResult.Diagnosis,
+            filePath: oResult.FilePath,
+            currentCode: oResult.CurrentCode,
+            proposedCode: oResult.ProposedCode,
+            explanation: oResult.Explanation
+          });
+        })
+        .catch(oError => {
+          oAiModel.setData({ busy: false });
+          MessageBox.error(oError.message || oResourceBundle.getText("fixApplyError"));
+        });
+    },
+
+    onApplyFix: function () {
+      const oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
+      const oAiModel = this.getView().getModel("aiSuggestion");
+      const sMessageGuid = this._sLastMessageGuid;
+      const sFilePath = oAiModel.getProperty("/filePath");
+      if (!sMessageGuid || !sFilePath) return;
+
+      const oModel = this.getView().getModel();
+      this._applySystemHeader(oModel);
+
+      oAiModel.setProperty("/busy", true);
+
+      const oOperation = oModel.bindContext("/applyFixAndDeploy(...)");
+      oOperation.setParameter("messageGuid", sMessageGuid);
+      oOperation.setParameter("filePath", sFilePath);
+      oOperation.setParameter("proposedCode", oAiModel.getProperty("/proposedCode"));
+
+      oOperation.execute()
+        .then(() => {
+          const oResult = oOperation.getBoundContext().getObject();
+          oAiModel.setProperty("/busy", false);
+          if (oResult.Success) {
+            MessageToast.show(oResourceBundle.getText("fixApplied", [oResult.TaskId]));
+            oAiModel.setData({});
+          } else {
+            MessageBox.error(oResult.Message || oResourceBundle.getText("fixApplyError"));
+          }
+        })
+        .catch(oError => {
+          oAiModel.setProperty("/busy", false);
+          MessageBox.error(oError.message || oResourceBundle.getText("fixApplyError"));
+        });
     }
   });
 });

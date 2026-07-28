@@ -2,11 +2,14 @@
   "name": "Monitoring_IS",
   "version": "1.0.0",
   "dependencies": {
-    "@sap/cds": "^9",
-    "@sap/xssec": "^4",
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@google/genai": "^2.13.0",
     "@sap-cloud-sdk/connectivity": "^4",
     "@sap-cloud-sdk/http-client": "^4",
-    "@sap-cloud-sdk/resilience": "^4"
+    "@sap-cloud-sdk/resilience": "^4",
+    "@sap/cds": "^9",
+    "@sap/xssec": "^4",
+    "adm-zip": "^0.6.0"
   },
   "devDependencies": {
     "@cap-js/sqlite": "^2.4",
@@ -25,8 +28,17 @@
       "auth": {
         "kind": "mocked",
         "users": {
-          "alice": { "roles": ["Monitor", "ConnectionAdmin"] },
-          "bob": { "roles": ["Monitor"] }
+          "alice": {
+            "roles": [
+              "Monitor",
+              "ConnectionAdmin"
+            ]
+          },
+          "bob": {
+            "roles": [
+              "Monitor"
+            ]
+          }
         }
       },
       "connectivity": true,

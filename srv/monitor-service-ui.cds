@@ -56,7 +56,14 @@ annotate service.MessageProcessingLogs with @(
     ]
   }
 ) {
-  Status               @title: 'Estado';
+  Status               @title: 'Estado' @Common.ValueListWithFixedValues: true @Common.ValueList: {
+    Label: 'Estado',
+    CollectionPath: 'StatusValues',
+    Parameters: [
+      { $Type: 'Common.ValueListParameterInOut',      LocalDataProperty: Status, ValueListProperty: 'Code' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'Text' }
+    ]
+  };
   IntegrationFlowName  @title: 'Artefacto' @Common.ValueList: {
     Label: 'Artefacto',
     CollectionPath: 'Artifacts',

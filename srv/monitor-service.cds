@@ -1,10 +1,12 @@
+// Verified against the real Message Processing Logs API: these six are the
+// complete set of Status values it returns — nothing missing, nothing extra.
 type Status : String enum {
-  COMPLETED;
-  FAILED;
-  ESCALATED;
-  PROCESSING;
-  RETRY;
-  DISCARDED;
+  COMPLETED  @Core.Description: 'Completado';
+  FAILED     @Core.Description: 'Fallido';
+  ESCALATED  @Core.Description: 'Escalado';
+  PROCESSING @Core.Description: 'En proceso';
+  RETRY      @Core.Description: 'Reintentando';
+  DISCARDED  @Core.Description: 'Descartado';
 }
 
 // Leave TimePreset unset to use CustomFrom/CustomTo directly instead of a preset.
@@ -33,6 +35,19 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
   entity Artifacts {
     key Id   : String;
         Name : String;
+  }
+
+  // Backs the fixed-values dropdown for the "Estado" filter (see
+  // Status @Common.ValueList in monitor-service-ui.cds) — Fiori Elements needs
+  // an actual CollectionPath to render a dropdown, Validation.AllowedValues
+  // (auto-derived from the Status enum) alone only drives input validation,
+  // not the filter bar's value help. Served from the enum's own
+  // @Core.Description in monitor-service.js, so the Spanish text has one
+  // source of truth.
+  @readonly
+  entity StatusValues {
+    key Code : String;
+        Text : String;
   }
 
   @readonly
@@ -79,6 +94,31 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
     Name        : String;
     ContentType : String;
     Content     : String;
+  };
+
+  type AiSuggestion : {
+    Diagnosis    : String;
+    FilePath     : String;
+    CurrentCode  : String;
+    ProposedCode : String;
+    Explanation  : String;
+  }
+
+  // Analiza el error de una ejecución FAILED (traza + adjuntos + contenido del
+  // iflow) con Claude y propone una corrección de un único fichero. Efectos:
+  // llamada de pago a la API de Anthropic + escritura en la caché en memoria
+  // que applyFixAndDeploy necesita después — de ahí que sea action, no function.
+  action analyzeError( messageGuid : String ) returns AiSuggestion;
+
+  @requires: 'ConnectionAdmin'
+  action applyFixAndDeploy(
+    messageGuid  : String,
+    filePath     : String,
+    proposedCode : String
+  ) returns {
+    Success : Boolean;
+    TaskId  : String;
+    Message : String;
   };
 
   @requires: 'ConnectionAdmin'

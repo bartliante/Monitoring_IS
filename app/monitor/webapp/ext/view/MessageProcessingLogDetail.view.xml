@@ -67,18 +67,51 @@
           <uxap:ObjectPageSubSection>
             <VBox>
               <Button
+                id="analyzeButton"
                 text="{i18n>analyzeWithAI}"
                 type="Emphasized"
                 press=".onAnalyzeWithAI"
+                enabled="{= !${aiSuggestion>/busy} }"
                 class="sapUiSmallMarginBottom"
               />
+              <Text text="{i18n>analyzing}" visible="{aiSuggestion>/busy}" class="sapUiSmallMarginBottom"/>
               <MessageStrip
-                text="{i18n>aiNotImplementedText}"
+                text="{aiSuggestion>/diagnosis}"
+                visible="{= !!%{aiSuggestion>/diagnosis} }"
                 type="Information"
                 showIcon="true"
                 class="sapUiSmallMarginBottom"
               />
-              <Button text="{i18n>applyFixAndDeploy}" enabled="false"/>
+              <HBox visible="{= !!%{aiSuggestion>/filePath} }" class="sapUiSmallMarginBottom">
+                <VBox width="50%" class="sapUiTinyMarginEnd">
+                  <Label text="{i18n>currentCodeLabel}"/>
+                  <TextArea
+                    value="{aiSuggestion>/currentCode}"
+                    editable="false"
+                    growing="true"
+                    growingMaxLines="25"
+                    width="100%"
+                  />
+                </VBox>
+                <VBox width="50%" class="sapUiTinyMarginStart">
+                  <Label text="{i18n>proposedCodeLabel}"/>
+                  <TextArea
+                    id="proposedCodeArea"
+                    value="{aiSuggestion>/proposedCode}"
+                    editable="true"
+                    growing="true"
+                    growingMaxLines="25"
+                    width="100%"
+                  />
+                </VBox>
+              </HBox>
+              <Text text="{aiSuggestion>/explanation}" visible="{= !!%{aiSuggestion>/explanation} }" class="sapUiSmallMarginBottom"/>
+              <Button
+                text="{i18n>applyFixAndDeploy}"
+                type="Emphasized"
+                press=".onApplyFix"
+                enabled="{= !!%{aiSuggestion>/filePath} &amp;&amp; !%{aiSuggestion>/busy} }"
+              />
             </VBox>
           </uxap:ObjectPageSubSection>
         </uxap:subSections>

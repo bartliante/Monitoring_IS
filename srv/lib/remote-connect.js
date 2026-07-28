@@ -43,13 +43,14 @@ function invalidate(destinationName) {
 }
 
 // For endpoints that aren't plain entity CRUD (media/stream resources like
-// ErrorInformation/$value or Attachments/$value, or convenience params like
-// $format=json) there's no CQN to build — go around the RemoteService/CQN
-// layer entirely and call the destination directly via Cloud SDK's HTTP
-// client. Mirrors getRemoteFor's local-vs-BTP split: BTP resolves fully by
-// name (its own token handling); local passes the same inline
-// url/auth/token object used elsewhere, for the same reasons as getRemoteFor.
-async function rawGet(destinationName, urlOrPath) {
+// ErrorInformation/$value or Attachments/$value, convenience params like
+// $format=json, or non-GET calls like uploading/deploying an iflow) there's
+// no CQN to build — go around the RemoteService/CQN layer entirely and call
+// the destination directly via Cloud SDK's HTTP client. Mirrors
+// getRemoteFor's local-vs-BTP split: BTP resolves fully by name (its own
+// token handling); local passes the same inline url/auth/token object used
+// elsewhere, for the same reasons as getRemoteFor.
+async function rawRequest(destinationName, urlOrPath, { method = 'get', data, responseType = 'text', headers } = {}) {
   const destination = destinationsAdmin.hasRealDestinationService()
     ? { destinationName }
     : await destinationsAdmin.resolveLocalCredentials(destinationName)
@@ -58,8 +59,30 @@ async function rawGet(destinationName, urlOrPath) {
   const isAbsolute = /^https?:\/\//i.test(urlOrPath)
   const url = isAbsolute ? urlOrPath : `${staticCredentials.path || ''}${urlOrPath}`
 
-  const response = await executeHttpRequest(destination, { method: 'get', url, responseType: 'text' })
-  return response.data
+  try {
+    const response = await executeHttpRequest(destination, { method, url, data, responseType, headers })
+    return response.data
+  } catch (e) {
+    // Cloud SDK/axios's own error message is just "Request failed with status
+    // code 400" — the actual reason (CPI returns a JSON/XML body describing
+    // what's wrong) is in e.response.data, which gets silently dropped unless
+    // surfaced here.
+    if (e.response) {
+      const body = Buffer.isBuffer(e.response.data) ? e.response.data.toString('utf8') : e.response.data
+      const detail = typeof body === 'string' ? body : JSON.stringify(body)
+      const error = new Error(`${method.toUpperCase()} ${url} -> ${e.response.status}: ${(detail || '').slice(0, 1000)}`)
+      error.response = e.response
+      throw error
+    }
+    throw e
+  }
 }
 
-module.exports = { getRemoteFor, invalidate, rawGet }
+async function rawGet(destinationName, urlOrPath) {
+  return rawRequest(destinationName, urlOrPath, { method: 'get', responseType: 'text' })
+}
+
+// OData v2 key segment: 'value' with embedded single quotes doubled.
+const odataKey = value => `'${String(value).replace(/'/g, "''")}'`
+
+module.exports = { getRemoteFor, invalidate, rawGet, rawRequest, odataKey }
