@@ -10,15 +10,6 @@
   <Page title="{i18n>appTitle}" showNavButton="false" enableScrolling="true">
     <content>
       <VBox height="100%">
-        <Toolbar class="sapUiSmallMarginBottom">
-          <Label text="{i18n>systemLabel}" labelFor="systemSelect" class="sapUiTinyMarginEnd"/>
-          <Select id="systemSelect" width="18rem" items="{path: '/Systems'}" change=".onSystemChange">
-            <core:Item key="{Name}" text="{DisplayName}"/>
-          </Select>
-          <ToolbarSpacer/>
-          <Button id="newConnectionButton" text="{i18n>newConnection}" type="Emphasized" press=".onNewConnection"/>
-        </Toolbar>
-
         <macros:FilterBar
           id="fb"
           contextPath="/MessageProcessingLogs"

@@ -1,0 +1,14 @@
+<mvc:View
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  controllerName="monitoringis.shell.controller.IflowDesignPlaceholder"
+  displayBlock="true"
+  height="100%"
+>
+  <MessagePage
+    text="{i18n>iflowDesignPlaceholderText}"
+    title="{i18n>menuIflowDesign}"
+    icon="sap-icon://simulate"
+    description="{i18n>iflowDesignPlaceholderDescription}"
+  />
+</mvc:View>

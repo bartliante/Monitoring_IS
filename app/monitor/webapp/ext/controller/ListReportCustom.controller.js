@@ -1,12 +1,12 @@
 sap.ui.define([
-  "sap/fe/core/PageController",
-  "sap/m/MessageToast",
-  "sap/m/MessageBox"
-], function (PageController, MessageToast, MessageBox) {
+  "sap/fe/core/PageController"
+], function (PageController) {
   "use strict";
 
   const SYSTEM_STORAGE_KEY = "monitoringIS.system";
   const SYSTEM_HEADER = "x-system-destination";
+  const EVENT_CHANNEL = "monitoringIS";
+  const EVENT_SYSTEM_CHANGED = "systemChanged";
 
   // sap.fe.macros building blocks (FilterBar, Table) are designed to run inside
   // a page hosted by sap.fe.core.fpm, whose controller must extend
@@ -19,6 +19,8 @@ sap.ui.define([
 
     onInit: function () {
       PageController.prototype.onInit.apply(this, arguments)
+
+      sap.ui.getCore().getEventBus().subscribe(EVENT_CHANNEL, EVENT_SYSTEM_CHANGED, this._onSystemChangedExternally, this);
 
       const oView = this.getView();
       const oModel = oView.getModel();
@@ -34,31 +36,24 @@ sap.ui.define([
       }
     },
 
+    onExit: function () {
+      sap.ui.getCore().getEventBus().unsubscribe(EVENT_CHANNEL, EVENT_SYSTEM_CHANGED, this._onSystemChangedExternally, this);
+    },
+
+    // The system selector now lives in the shared shell toolbar (app/shell),
+    // which owns its own OData model instance — this component's model needs
+    // the header applied independently, both on init (page reload/deep link)
+    // and whenever the shell broadcasts a change while this page is already open.
     _restoreSystemSelection: function (oModel) {
       const sStoredSystem = window.sessionStorage.getItem(SYSTEM_STORAGE_KEY);
       if (!sStoredSystem) return;
       oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sStoredSystem });
-
-      const oSelect = this.byId("systemSelect");
-      if (!oSelect) return;
-      const oItemsBinding = oSelect.getBinding("items");
-      if (oItemsBinding && oItemsBinding.getContexts().length) {
-        oSelect.setSelectedKey(sStoredSystem);
-      } else if (oItemsBinding) {
-        oItemsBinding.attachEventOnce("dataReceived", () => oSelect.setSelectedKey(sStoredSystem));
-      }
     },
 
-    onSystemChange: function (oEvent) {
-      const sSystem = oEvent.getParameter("selectedItem")
-        ? oEvent.getParameter("selectedItem").getKey()
-        : oEvent.getSource().getSelectedKey();
-
+    _onSystemChangedExternally: function (sChannel, sEvent, oData) {
       const oModel = this.getView().getModel();
       if (!oModel) return;
-      oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sSystem });
-      window.sessionStorage.setItem(SYSTEM_STORAGE_KEY, sSystem);
-
+      oModel.changeHttpHeaders({ [SYSTEM_HEADER]: oData.system });
       this._refresh();
     },
 
@@ -74,64 +69,6 @@ sap.ui.define([
       // filters/sorters.
       const oTable = this.byId("tbl");
       if (oTable && oTable.rebind) oTable.rebind();
-    },
-
-    onNewConnection: function () {
-      if (!this._pNewConnectionDialog) {
-        this._pNewConnectionDialog = this.loadFragment({
-          name: "monitoringis.monitor.ext.fragment.NewConnectionDialog"
-        });
-      }
-      this._pNewConnectionDialog.then(function (oDialog) {
-        oDialog.open();
-      });
-    },
-
-    onCreateConnectionConfirm: function () {
-      const oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
-      const mFields = {
-        name: this.byId("connName").getValue().trim(),
-        apiUrl: this.byId("connApiUrl").getValue().trim(),
-        tokenUrl: this.byId("connTokenUrl").getValue().trim(),
-        clientId: this.byId("connClientId").getValue().trim(),
-        clientSecret: this.byId("connClientSecret").getValue()
-      };
-
-      if (Object.values(mFields).some(v => !v)) {
-        MessageBox.error(oResourceBundle.getText("allFieldsRequired"));
-        return;
-      }
-
-      const oModel = this.getView().getModel();
-      const oOperation = oModel.bindContext("/createConnection(...)");
-      oOperation.setParameter("name", mFields.name);
-      oOperation.setParameter("apiUrl", mFields.apiUrl);
-      oOperation.setParameter("tokenUrl", mFields.tokenUrl);
-      oOperation.setParameter("clientId", mFields.clientId);
-      oOperation.setParameter("clientSecret", mFields.clientSecret);
-
-      oOperation.execute()
-        .then(() => {
-          MessageToast.show(oResourceBundle.getText("connectionCreated"));
-          this.byId("newConnectionDialog").close();
-          this._resetDialogFields();
-          this.byId("systemSelect").getBinding("items").refresh();
-        })
-        .catch(oError => {
-          MessageBox.error(oError.message || oError.toString());
-        });
-    },
-
-    onCreateConnectionCancel: function () {
-      this.byId("newConnectionDialog").close();
-      this._resetDialogFields();
-    },
-
-    _resetDialogFields: function () {
-      ["connName", "connApiUrl", "connTokenUrl", "connClientId", "connClientSecret"].forEach(sId => {
-        const oControl = this.byId(sId);
-        if (oControl) oControl.setValue("");
-      });
     }
   });
 });

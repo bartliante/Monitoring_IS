@@ -1,0 +1,46 @@
+<mvc:View
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.tnt"
+  xmlns:m="sap.m"
+  xmlns:core="sap.ui.core"
+  controllerName="monitoringis.shell.controller.Shell"
+  displayBlock="true"
+  height="100%"
+>
+  <ToolPage id="toolPage">
+    <header>
+      <m:Toolbar class="sapUiSmallMarginBottom">
+        <m:Button icon="sap-icon://menu2" type="Transparent" press=".onToggleSideNav" tooltip="{i18n>toggleMenu}"/>
+        <m:Label text="{i18n>systemLabel}" labelFor="systemSelect" class="sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
+        <m:Select id="systemSelect" width="18rem" items="{path: '/Systems'}" change=".onSystemChange">
+          <core:Item key="{Name}" text="{DisplayName}"/>
+        </m:Select>
+        <m:ToolbarSpacer/>
+        <m:Button id="newConnectionButton" text="{i18n>newConnection}" type="Emphasized" press=".onNewConnection"/>
+      </m:Toolbar>
+    </header>
+    <sideContent>
+      <SideNavigation id="sideNav" itemSelect=".onMenuItemSelect">
+        <NavigationList>
+          <NavigationListItem key="monitoring" text="{i18n>menuMonitoring}" icon="sap-icon://status-positive" selected="true"/>
+          <NavigationListItem key="iflowDesign" text="{i18n>menuIflowDesign}" icon="sap-icon://simulate"/>
+        </NavigationList>
+      </SideNavigation>
+    </sideContent>
+    <mainContents>
+      <core:ComponentContainer
+        id="monitoringContainer"
+        usage="monitoringApp"
+        async="true"
+        height="100%"
+        width="100%"
+        visible="{= ${shellView>/menuKey} === 'monitoring'}"
+      />
+      <mvc:XMLView
+        id="iflowDesignView"
+        viewName="monitoringis.shell.view.IflowDesignPlaceholder"
+        visible="{= ${shellView>/menuKey} === 'iflowDesign'}"
+      />
+    </mainContents>
+  </ToolPage>
+</mvc:View>
