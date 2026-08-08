@@ -37,6 +37,35 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
         Name : String;
   }
 
+  @readonly
+  entity IntegrationPackages {
+    key Id   : String;
+        Name : String;
+  }
+
+  // Iflows contenidos en un paquete — desplegable dependiente de "Paquete" en
+  // Diseño de iflow (modo Actualizar). Navegación puntual sobre
+  // IntegrationPackages, resuelta con rawGet en monitor-service.js (no CQN,
+  // mismo motivo que getAttachments/getErrorTrace).
+  function getPackageArtifacts( packageId : String ) returns array of {
+    Id      : String;
+    Name    : String;
+    Version : String;
+  };
+
+  // Metadatos de un iflow existente para precargar el formulario de
+  // Actualizar. Sender/Receiver son atributos reales de
+  // IntegrationDesigntimeArtifacts (verificado contra el tenant real), no
+  // hay que parsear el .iflw.
+  function getIflowDetails( artifactId : String ) returns {
+    Id          : String;
+    PackageId   : String;
+    Name        : String;
+    Description : String;
+    Sender      : String;
+    Receiver    : String;
+  };
+
   // Backs the fixed-values dropdown for the "Estado" filter (see
   // Status @Common.ValueList in monitor-service-ui.cds) — Fiori Elements needs
   // an actual CollectionPath to render a dropdown, Validation.AllowedValues
@@ -116,6 +145,44 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
     filePath     : String,
     proposedCode : String
   ) returns {
+    Success : Boolean;
+    TaskId  : String;
+    Message : String;
+  };
+
+  type IflowMode : String enum { CREATE; UPDATE; }
+  type AiInputMode : String enum { PROMPT; DOCUMENT; }
+
+  type IflowDesignProposal : {
+    Summary  : String;
+    Warnings : String;
+    Files    : array of {
+      Path    : String;
+      Preview : String;
+    };
+  }
+
+  // Analiza el requerimiento (prompt o diseño técnico adjunto) con IA y
+  // propone el contenido del iflow a crear/actualizar, sin tocar el tenant
+  // todavía (igual que analyzeError frente a applyFixAndDeploy). El resultado
+  // se cachea en memoria para que confirmIflowDesign no tenga que repetir la
+  // llamada a la IA.
+  action designIflow(
+    mode               : IflowMode,
+    packageId          : String,
+    artifactId         : String,
+    artifactName       : String,
+    description        : String,
+    sender             : String,
+    receiver           : String,
+    aiInputMode        : AiInputMode,
+    prompt             : String,
+    designDocument     : LargeString,
+    designDocumentName : String
+  ) returns IflowDesignProposal;
+
+  @requires: 'ConnectionAdmin'
+  action confirmIflowDesign( artifactId : String ) returns {
     Success : Boolean;
     TaskId  : String;
     Message : String;

@@ -1,0 +1,151 @@
+<mvc:View
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:u="sap.ui.unified"
+  xmlns:f="sap.ui.layout.form"
+  controllerName="monitoringis.shell.controller.IflowDesign"
+  displayBlock="true"
+  height="100%"
+>
+  <ScrollContainer height="100%" width="100%" horizontal="false" vertical="true">
+    <VBox class="sapUiMediumMargin" width="60rem">
+
+      <Toolbar class="sapUiSmallMarginBottom">
+        <Title text="{i18n>menuIflowDesign}" level="H2"/>
+      </Toolbar>
+
+      <Label text="{i18n>iflowModeLabel}" class="sapUiTinyMarginBottom"/>
+      <RadioButtonGroup
+        id="modeGroup"
+        columns="2"
+        selectedIndex="{iflowDesign>/modeIndex}"
+        select=".onModeSelect"
+        class="sapUiMediumMarginBottom"
+      >
+        <RadioButton text="{i18n>modeCreate}"/>
+        <RadioButton text="{i18n>modeUpdate}"/>
+      </RadioButtonGroup>
+
+      <f:SimpleForm layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4">
+        <core:Title text="{i18n>iflowDataTitle}"/>
+
+        <Label text="{i18n>packageLabel}" required="true"/>
+        <Select
+          id="packageSelect"
+          items="{path: 'iflowDesign>/packages'}"
+          selectedKey="{iflowDesign>/packageId}"
+          change=".onPackageChange"
+          width="100%"
+        >
+          <core:Item key="{iflowDesign>Id}" text="{iflowDesign>Name}"/>
+        </Select>
+
+        <Label text="{i18n>iflowSelectLabel}" required="true" visible="{= ${iflowDesign>/mode} === 'UPDATE' }"/>
+        <Select
+          id="artifactSelect"
+          visible="{= ${iflowDesign>/mode} === 'UPDATE' }"
+          items="{path: 'iflowDesign>/artifacts'}"
+          selectedKey="{iflowDesign>/artifactId}"
+          change=".onArtifactChange"
+          width="100%"
+        >
+          <core:Item key="{iflowDesign>Id}" text="{iflowDesign>Name}"/>
+        </Select>
+
+        <Label text="{i18n>iflowNameLabel}" required="true" visible="{= ${iflowDesign>/mode} === 'CREATE' }"/>
+        <Input value="{iflowDesign>/name}" liveChange=".onNameLiveChange" visible="{= ${iflowDesign>/mode} === 'CREATE' }"/>
+
+        <Label text="{i18n>iflowIdLabel}"/>
+        <Input value="{iflowDesign>/id}" editable="{= ${iflowDesign>/mode} === 'CREATE' }" visible="{= ${iflowDesign>/mode} === 'CREATE' }"/>
+        <Text text="{iflowDesign>/id}" visible="{= ${iflowDesign>/mode} === 'UPDATE' }"/>
+
+        <Label text="{i18n>iflowDescriptionLabel}"/>
+        <TextArea value="{iflowDesign>/description}" rows="3" width="100%"/>
+
+        <Label text="{i18n>iflowSenderLabel}"/>
+        <Input value="{iflowDesign>/sender}"/>
+
+        <Label text="{i18n>iflowReceiverLabel}"/>
+        <Input value="{iflowDesign>/receiver}"/>
+
+        <core:Title text="{i18n>aiSectionTitle}"/>
+
+        <Label text="{i18n>aiInputModeLabel}"/>
+        <RadioButtonGroup
+          id="aiInputModeGroup"
+          columns="3"
+          selectedIndex="{iflowDesign>/aiInputModeIndex}"
+          select=".onAiInputModeSelect"
+        >
+          <RadioButton text="{i18n>aiInputPrompt}"/>
+          <RadioButton text="{i18n>aiInputDocument}"/>
+          <RadioButton text="{i18n>aiInputTemplate}" enabled="false"/>
+        </RadioButtonGroup>
+
+        <Label text="{i18n>promptLabel}" visible="{= ${iflowDesign>/aiInputMode} === 'PROMPT' }"/>
+        <TextArea
+          value="{iflowDesign>/prompt}"
+          rows="6"
+          width="100%"
+          placeholder="{i18n>promptPlaceholder}"
+          visible="{= ${iflowDesign>/aiInputMode} === 'PROMPT' }"
+        />
+
+        <Label text="{i18n>designDocumentLabel}" visible="{= ${iflowDesign>/aiInputMode} === 'DOCUMENT' }"/>
+        <u:FileUploader
+          id="designDocumentUploader"
+          fileType="pdf,docx"
+          change=".onDocumentSelected"
+          width="100%"
+          visible="{= ${iflowDesign>/aiInputMode} === 'DOCUMENT' }"
+        />
+
+      </f:SimpleForm>
+
+      <Button
+        id="submitButton"
+        text="{= ${iflowDesign>/mode} === 'CREATE' ? ${i18n>createIflowButton} : ${i18n>updateIflowButton} }"
+        type="Emphasized"
+        press=".onSubmit"
+        enabled="{= !${iflowDesign>/busy} }"
+        class="sapUiMediumMarginTop sapUiSmallMarginBottom"
+      />
+      <Text text="{i18n>busyDesigning}" visible="{iflowDesign>/busy}" class="sapUiSmallMarginBottom"/>
+
+      <VBox visible="{= !!${iflowDesign>/proposal} }" class="sapUiMediumMarginTop">
+        <Toolbar class="sapUiSmallMarginBottom">
+          <Title text="{i18n>proposalTitle}" level="H3"/>
+        </Toolbar>
+        <MessageStrip
+          text="{iflowDesign>/proposal/Summary}"
+          type="Information"
+          showIcon="true"
+          class="sapUiSmallMarginBottom"
+        />
+        <MessageStrip
+          text="{iflowDesign>/proposal/Warnings}"
+          type="Warning"
+          showIcon="true"
+          visible="{= !!${iflowDesign>/proposal/Warnings} }"
+          class="sapUiSmallMarginBottom"
+        />
+        <Label text="{i18n>proposalFilesTitle}" class="sapUiTinyMarginBottom"/>
+        <List items="{iflowDesign>/proposal/Files}" class="sapUiSmallMarginBottom">
+          <StandardListItem title="{iflowDesign>Path}" description="{iflowDesign>Preview}" wrapping="true"/>
+        </List>
+        <HBox>
+          <Button
+            text="{= ${iflowDesign>/mode} === 'CREATE' ? ${i18n>confirmCreateButton} : ${i18n>confirmUpdateButton} }"
+            type="Emphasized"
+            press=".onConfirm"
+            enabled="{= !${iflowDesign>/busy} }"
+            class="sapUiTinyMarginEnd"
+          />
+          <Button text="{i18n>discardButton}" press=".onDiscardProposal" enabled="{= !${iflowDesign>/busy} }"/>
+        </HBox>
+      </VBox>
+
+    </VBox>
+  </ScrollContainer>
+</mvc:View>

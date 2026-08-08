@@ -38,7 +38,7 @@
       />
       <mvc:XMLView
         id="iflowDesignView"
-        viewName="monitoringis.shell.view.IflowDesignPlaceholder"
+        viewName="monitoringis.shell.view.IflowDesign"
         visible="{= ${shellView>/menuKey} === 'iflowDesign'}"
       />
     </mainContents>

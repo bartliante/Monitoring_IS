@@ -5,24 +5,24 @@ const destinationsAdmin = require('./lib/destinations-admin')
 const { getRemoteFor, invalidate, rawGet, odataKey } = require('./lib/remote-connect')
 const { translateMessageProcessingLogsQuery, criticalityForStatus } = require('./lib/query-translate')
 const {
-  downloadIflowZip, extractRelevantFiles, applyFixToZip, uploadIflowZip, deployArtifact
+  downloadIflowZip, extractRelevantFiles, applyFixToZip, applyFilesToZip, buildIflowFromTemplate,
+  uploadIflowZip, createIflowZip, deployArtifact
 } = require('./lib/iflow-content')
 const { diagnoseAndFix } = require('./lib/ai-fix')
+const { designIflow: designIflowWithAi } = require('./lib/ai-iflow')
+const { extractText } = require('./lib/document-text')
+const { createTtlCache } = require('./lib/ttl-cache')
 
-// Holds, between "Analizar con IA" and "Aplicar corrección y desplegar", the
-// iflow ZIP/metadata the second step needs so it doesn't have to re-download
-// and the user can freely edit the proposed code in between. In-memory only
-// (same spirit as remote-connect.js's `connections` cache) — a server
-// restart just means the user has to re-analyze, which is an acceptable cost
-// for not needing a real datastore for this transient state.
-const aiCache = new Map()
+// Holds, between the "propose" and "confirm" steps of each two-step AI flow,
+// the iflow ZIP/metadata the second step needs so it doesn't have to
+// re-download/re-build and the user can freely review in between. Same TTL
+// cache for both: "Analizar con IA" -> "Aplicar corrección y desplegar"
+// (aiCache, keyed by messageGuid) and "Diseño de iflow" propose -> confirm
+// (iflowDesignCache, keyed by artifactId) — separate maps so the two flows'
+// keys can never collide.
 const AI_CACHE_TTL_MS = 30 * 60 * 1000
-
-function rememberAiContext(key, value) {
-  const now = Date.now()
-  for (const [k, v] of aiCache) if (now - v.ts > AI_CACHE_TTL_MS) aiCache.delete(k)
-  aiCache.set(key, { ...value, ts: now })
-}
+const aiCache = createTtlCache(AI_CACHE_TTL_MS)
+const iflowDesignCache = createTtlCache(AI_CACHE_TTL_MS)
 
 // Shared by the getAttachments handler and analyzeError (which feeds the same
 // attachments to Claude as extra evidence alongside the error trace).
@@ -51,7 +51,7 @@ async function fetchLogWithArtifact(system, messageGuid) {
 }
 
 module.exports = cds.service.impl(async function () {
-  const { Systems, Artifacts, MessageProcessingLogs, StatusValues } = this.entities
+  const { Systems, Artifacts, MessageProcessingLogs, StatusValues, IntegrationPackages } = this.entities
 
   this.on('READ', Systems, async () => destinationsAdmin.list())
 
@@ -75,6 +75,50 @@ module.exports = cds.service.impl(async function () {
       const remote = await getRemoteFor(system)
       const artifacts = await remote.run(SELECT.from('IntegrationRuntimeArtifacts').columns('Id', 'Name'))
       return artifacts.map(a => ({ Id: a.Id, Name: a.Name }))
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('READ', IntegrationPackages, async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return []
+    try {
+      const remote = await getRemoteFor(system)
+      // No .columns() here — unlike IntegrationRuntimeArtifacts (see Artifacts above),
+      // this entity's real API 500s on "$select is not supported" (verified against a
+      // real tenant), so the column restriction has to happen in JS after a plain read.
+      const packages = await remote.run(SELECT.from('IntegrationPackages'))
+      return packages.map(p => ({ Id: p.Id, Name: p.Name }))
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('getPackageArtifacts', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const { packageId } = req.data
+    try {
+      const text = await rawGet(system, `/IntegrationPackages(${odataKey(packageId)})/IntegrationDesigntimeArtifacts?$format=json`)
+      const results = JSON.parse(text).d.results || []
+      return results.map(a => ({ Id: a.Id, Name: a.Name, Version: a.Version }))
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('getIflowDetails', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const { artifactId } = req.data
+    try {
+      const text = await rawGet(system, `/IntegrationDesigntimeArtifacts(Id=${odataKey(artifactId)},Version=${odataKey('active')})?$format=json`)
+      const d = JSON.parse(text).d
+      return {
+        Id: d.Id, PackageId: d.PackageId, Name: d.Name,
+        Description: d.Description || '', Sender: d.Sender || '', Receiver: d.Receiver || ''
+      }
     } catch (e) {
       return req.reject(500, e.message)
     }
@@ -141,7 +185,7 @@ module.exports = cds.service.impl(async function () {
       const suggestion = await diagnoseAndFix({ errorTrace, attachments, flowXml, scripts, logContext: log })
       const currentCode = [...flowXml, ...scripts].find(f => f.path === suggestion.filePath)?.content || ''
 
-      rememberAiContext(`${system}::${messageGuid}`, {
+      aiCache.set(`${system}::${messageGuid}`, {
         artifactId, packageId, name: log.IntegrationFlowName, zipBuffer
       })
 
@@ -169,6 +213,73 @@ module.exports = cds.service.impl(async function () {
       const taskId = await deployArtifact(system, cached.artifactId)
       aiCache.delete(`${system}::${messageGuid}`)
       return { Success: true, TaskId: String(taskId), Message: 'Corrección aplicada y despliegue iniciado' }
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('designIflow', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const {
+      mode, packageId, artifactId, artifactName, description, sender, receiver,
+      aiInputMode, prompt, designDocument, designDocumentName
+    } = req.data
+    if (!packageId || !artifactId || !artifactName) {
+      return req.reject(400, 'Paquete, nombre e ID del iflow son obligatorios')
+    }
+    try {
+      let requirements = prompt
+      if (aiInputMode === 'DOCUMENT') {
+        if (!designDocument) return req.reject(400, 'Adjunta un diseño técnico')
+        requirements = await extractText(Buffer.from(designDocument, 'base64'), designDocumentName)
+      }
+      if (!requirements) return req.reject(400, 'Especifica un prompt o adjunta un diseño técnico')
+
+      const zipBuffer = mode === 'CREATE'
+        ? buildIflowFromTemplate({ id: artifactId, name: artifactName, description, sender, receiver })
+        : await downloadIflowZip(system, artifactId)
+      const { flowXml, scripts } = extractRelevantFiles(zipBuffer)
+
+      const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts })
+      const newZip = applyFilesToZip(zipBuffer, proposal.files)
+
+      iflowDesignCache.set(`${system}::${artifactId}`, {
+        mode, packageId, artifactId, artifactName, description, sender, receiver, zipBuffer: newZip
+      })
+
+      return {
+        Summary: proposal.summary,
+        Warnings: proposal.warnings || '',
+        Files: proposal.files.map(f => ({ Path: f.path, Preview: f.content.slice(0, 500) }))
+      }
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('confirmIflowDesign', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const { artifactId } = req.data
+    const cached = iflowDesignCache.get(`${system}::${artifactId}`)
+    if (!cached) return req.reject(400, 'Vuelve a generar la propuesta antes de confirmar (la información ya no está disponible)')
+    try {
+      const writeArgs = {
+        artifactId: cached.artifactId, packageId: cached.packageId, name: cached.artifactName,
+        description: cached.description, sender: cached.sender, receiver: cached.receiver,
+        zipBuffer: cached.zipBuffer
+      }
+      if (cached.mode === 'CREATE') await createIflowZip(system, writeArgs)
+      else await uploadIflowZip(system, writeArgs)
+
+      const taskId = await deployArtifact(system, cached.artifactId)
+      iflowDesignCache.delete(`${system}::${artifactId}`)
+      return {
+        Success: true,
+        TaskId: String(taskId),
+        Message: cached.mode === 'CREATE' ? 'Iflow creado y despliegue iniciado' : 'Iflow actualizado y despliegue iniciado'
+      }
     } catch (e) {
       return req.reject(500, e.message)
     }

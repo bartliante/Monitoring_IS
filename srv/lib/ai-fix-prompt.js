@@ -50,4 +50,4 @@ ${serializeFiles('definición de flujo', flowXml)}
 ${serializeFiles('scripts', scripts)}`
 }
 
-module.exports = { SUGGESTION_SCHEMA, SYSTEM_PROMPT, buildUserContent }
+module.exports = { SUGGESTION_SCHEMA, SYSTEM_PROMPT, buildUserContent, serializeFiles }

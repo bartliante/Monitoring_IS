@@ -38,4 +38,9 @@ service CloudIntegrationAPI @(path: '/api/v1') {
         DeployedOn : DateTime;
         Status     : String;
   }
+
+  @readonly entity IntegrationPackages {
+    key Id   : String;
+        Name : String;
+  }
 }
