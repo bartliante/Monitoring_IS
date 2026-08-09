@@ -1,0 +1,50 @@
+<bpmn2:startEvent id="StartEvent_EXAMPLE" name="Start Timer">
+    <bpmn2:outgoing>SequenceFlow_EXAMPLE</bpmn2:outgoing>
+    <bpmn2:timerEventDefinition id="TimerEventDefinition_EXAMPLE">
+        <bpmn2:extensionElements>
+            <ifl:property><key>scheduleKey</key><value>{{timerSchedule}}</value></ifl:property>
+            <ifl:property><key>componentVersion</key><value>1.3</value></ifl:property>
+            <ifl:property><key>cmdVariantUri</key><value>ctype::FlowstepVariant/cname::intermediatetimer/version::1.3.0</value></ifl:property>
+            <ifl:property><key>activityType</key><value>StartTimerEvent</value></ifl:property>
+        </bpmn2:extensionElements>
+    </bpmn2:timerEventDefinition>
+</bpmn2:startEvent>
+
+<!--
+IMPORTANTE sobre el Timer: la planificación NO va embebida como texto libre dentro del .iflw.
+"{{timerSchedule}}" es una referencia a un parámetro EXTERNALIZADO (el mecanismo real y correcto
+de Cloud Integration para programar un Timer) que debe declararse en AMBOS ficheros:
+
+1) src/main/resources/parameters.propdef — declara el parámetro con tipo "custom:schedule". El
+   fichero COMPLETO tiene EXACTAMENTE esta forma — la raíz es <parameters> (SIN namespace, SIN
+   "paramDef" ni ningún otro nombre: usar cualquier otra raíz hace fallar la creación entera con
+   "Cannot invoke Element.getElementsByTagName(String) because parametersNode is null", visto en
+   pruebas reales) y cada <parameter> necesita SIEMPRE estos 7 elementos hijo, todos presentes
+   aunque estén vacíos — si falta <description/> (o cualquier otro) falla con "Cannot invoke
+   Node.getFirstChild() because description is null" (también visto en pruebas reales). Esto aplica
+   a TODOS los parámetros que declares en este fichero, no solo al del Timer — si ya hay otros
+   parámetros (ver la sección "Parámetros externalizados actuales" más arriba), conserva sus
+   <parameter> tal cual y solo añade el/los nuevo(s) dentro de la MISMA raíz <parameters>:
+
+   <?xml version="1.0" encoding="UTF-8"?><parameters>
+   <parameter>
+     <key/>
+     <name>timerSchedule</name>
+     <type>custom:schedule</type>
+     <isRequired>false</isRequired>
+     <constraint/>
+     <description/>
+     <additionalMetadata/>
+   </parameter>
+   </parameters>
+
+2) src/main/resources/parameters.prop — da el valor real codificado como una serie de pares
+   cell/cell (dateType/timeType/triggerType/scheduleN/timeZone son las claves relevantes; el
+   resto puede dejarse vacío tal cual en este ejemplo). Ejemplo real y verificado de una
+   planificación diaria a mediodía:
+   timerSchedule=<row><cell>dayValue</cell><cell></cell></row><row><cell>monthValue</cell><cell></cell></row><row><cell>yearValue</cell><cell></cell></row><row><cell>dateType</cell><cell>DAILY</cell></row><row><cell>secondValue</cell><cell>0</cell></row><row><cell>minutesValue</cell><cell></cell></row><row><cell>hourValue</cell><cell></cell></row><row><cell>toInterval</cell><cell>24</cell></row><row><cell>fromInterval</cell><cell>0</cell></row><row><cell>OnEveryHour</cell><cell>12</cell></row><row><cell>timeType</cell><cell>TIME_HOUR_INTERVAL</cell></row><row><cell>timeZone</cell><cell>( UTC 0\:00 ) UTC</cell></row><row><cell>throwExceptionOnExpiry</cell><cell>true</cell></row><row><cell>second</cell><cell>*</cell></row><row><cell>minute</cell><cell>*</cell></row><row><cell>hour</cell><cell>*</cell></row><row><cell>day_of_month</cell><cell>?</cell></row><row><cell>month</cell><cell>*</cell></row><row><cell>dayOfWeek</cell><cell>*</cell></row><row><cell>year</cell><cell>*</cell></row><row><cell>startAt</cell><cell></cell></row><row><cell>endAt</cell><cell></cell></row><row><cell>attributeBehaviour</cell><cell>isRunOnceRequired,isScheduleOnDayRequired,isScheduleRecurRequired,isThrowExceptionOnExpiryVisible,isScheduleAdvancedVisible,isScheduleAdvancedStartEndVisible</cell></row><row><cell>triggerType</cell><cell>cron</cell></row><row><cell>noOfSchedules</cell><cell>1</cell></row><row><cell>schedule1</cell><cell>0+0+12+?+*+*+*&amp;trigger.timeZone\=UTC</cell></row>
+
+Sin este parámetro "custom:schedule" declarado y con valor en ambos ficheros, el Timer se
+despliega como "no configurado" y el build falla con "Timer is not configured. Please set a
+schedule" — el error visto repetidas veces en pruebas reales.
+-->

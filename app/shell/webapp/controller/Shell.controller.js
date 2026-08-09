@@ -15,7 +15,15 @@ sap.ui.define([
 
     onInit: function () {
       this.getView().setModel(new JSONModel({ menuKey: "monitoring" }), "shellView");
-      this._restoreSystemSelection();
+
+      // Deferred past the current task: changeHttpHeaders() throws "Unexpected
+      // open requests" if the model still has a request queued-but-not-yet-sent
+      // at the moment it's called (verified against a real error) — and during
+      // this same synchronous view-construction phase, systemSelect's own
+      // items="{path: '/Systems'}" binding (and now IflowDesign's own onInit
+      // work) can leave exactly that kind of request queued. One tick later,
+      // anything queued has already been dispatched, so the check passes.
+      setTimeout(() => this._restoreSystemSelection(), 0);
     },
 
     onToggleSideNav: function () {

@@ -188,6 +188,17 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
     Message : String;
   };
 
+  // Botón "+" junto a "Paquete" en Diseño de iflow (común a Crear/Actualizar).
+  // POST /IntegrationPackages con Id/Name/ShortText (verificado contra el
+  // tenant real) — Description/Version/etc. quedan con los valores por
+  // defecto del tenant, editables después desde Integration Suite.
+  @requires: 'ConnectionAdmin'
+  action createPackage(
+    id        : String,
+    name      : String,
+    shortText : String
+  ) returns IntegrationPackages;
+
   @requires: 'ConnectionAdmin'
   action createConnection(
     name         : String,

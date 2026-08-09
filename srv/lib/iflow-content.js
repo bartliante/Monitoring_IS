@@ -29,18 +29,24 @@ async function downloadIflowZip(system, artifactId) {
 }
 
 // Files worth sending to Claude: the graphical flow definition (so it can
-// relate component names from the error trace to actual steps) plus the
-// scripts/mappings that are the only things it's asked to fix.
+// relate component names from the error trace to actual steps), the
+// scripts/mappings that are the only things it's asked to fix, and (only used
+// by the "Diseño de iflow" flow, ai-iflow-prompt.js) the externalized
+// parameters files — needed so the AI can ADD a Timer's "custom:schedule"
+// parameter alongside whatever's already there instead of blindly creating a
+// parameters.prop that wipes out unrelated existing parameters on Actualizar.
 const RELEVANT_PATH_PATTERNS = [
   /^src\/main\/resources\/scenarioflows\/integrationflow\/.*\.iflw$/,
   /^src\/main\/resources\/script\/.*/,
   /^src\/main\/resources\/mapping\/.*/
 ]
+const PARAMETERS_PATHS = ['src/main/resources/parameters.prop', 'src/main/resources/parameters.propdef']
 
 function extractRelevantFiles(zipBuffer) {
   const zip = new AdmZip(zipBuffer)
   const flowXml = []
   const scripts = []
+  const parameters = []
   let totalBytes = 0
 
   for (const entry of zip.getEntries()) {
@@ -48,16 +54,19 @@ function extractRelevantFiles(zipBuffer) {
     const path = entry.entryName
     const isFlow = /\.iflw$/.test(path) && RELEVANT_PATH_PATTERNS[0].test(path)
     const isScript = RELEVANT_PATH_PATTERNS[1].test(path) || RELEVANT_PATH_PATTERNS[2].test(path)
-    if (!isFlow && !isScript) continue
+    const isParameters = PARAMETERS_PATHS.includes(path)
+    if (!isFlow && !isScript && !isParameters) continue
 
     const content = entry.getData().toString('utf8')
     if (totalBytes + content.length > MAX_TOTAL_BYTES) continue
     totalBytes += content.length
 
-    ;(isFlow ? flowXml : scripts).push({ path, content })
+    if (isFlow) flowXml.push({ path, content })
+    else if (isScript) scripts.push({ path, content })
+    else parameters.push({ path, content })
   }
 
-  return { flowXml, scripts }
+  return { flowXml, scripts, parameters }
 }
 
 function applyFixToZip(zipBuffer, filePath, newContent) {
@@ -170,11 +179,13 @@ async function uploadIflowZip(system, { artifactId, packageId, name, description
 
 // POST /collection creates a NEW artifact (see uploadIflowZip's comment for
 // why that endpoint can't be reused for updates) — this is "Diseño de iflow"
-// > Crear's write path. Description/Sender/Receiver in the POST body 500s
-// with an empty error message (verified against a real tenant) — the create
-// endpoint only accepts Id/PackageId/Name/ArtifactContent. Those three extra
-// fields DO work on the immediate follow-up PUT (also verified), so create
-// with the minimal body, then reuse uploadIflowZip right after to set them.
+// > Crear's write path. Sender and/or Receiver in the POST body 500 with an
+// empty error message (verified against a real tenant, isolated field by
+// field — Description alone is fine, Sender alone and Receiver alone both
+// fail) despite the API's own documented request shape listing them as
+// valid create-time fields. Both DO work on an immediate follow-up PUT
+// (also verified), so create with the minimal body, then reuse
+// uploadIflowZip right after to set Description/Sender/Receiver.
 async function createIflowZip(system, { artifactId, packageId, name, description, sender, receiver, zipBuffer }) {
   await rawRequest(
     system,

@@ -91,8 +91,14 @@ sap.ui.define([
       }).then(res => {
         if (!res.ok) throw new Error(`IntegrationPackages failed: HTTP ${res.status}`);
         return res.json();
-      }).then(oResult => oModel.setProperty("/packages", oResult.value || []))
-        .catch(oError => MessageBox.error(oError.message || this._resourceBundle().getText("designError")));
+      }).then(oResult => {
+        const aPackages = oResult.value || [];
+        oModel.setProperty("/packages", aPackages);
+        // Same forceSelection=true gotcha as artifactSelect (see _loadPackageArtifacts):
+        // Select auto-picks the first package visually without firing "change", so keep
+        // the model in sync with whatever it ends up showing.
+        if (aPackages.length && !oModel.getProperty("/packageId")) this._selectPackage(aPackages[0].Id);
+      }).catch(oError => MessageBox.error(oError.message || this._resourceBundle().getText("designError")));
     },
 
     // Same reasoning as above for getPackageArtifacts/getIflowDetails: they return an
@@ -152,10 +158,69 @@ sap.ui.define([
 
     onPackageChange: function (oEvent) {
       const sPackageId = oEvent.getParameter("selectedItem") ? oEvent.getParameter("selectedItem").getKey() : oEvent.getSource().getSelectedKey();
+      this._selectPackage(sPackageId);
+    },
+
+    _selectPackage: function (sPackageId) {
       const oModel = this.getView().getModel("iflowDesign");
       oModel.setProperty("/packageId", sPackageId);
       oModel.setProperty("/proposal", null);
       if (oModel.getProperty("/mode") === "UPDATE") this._loadPackageArtifacts(sPackageId);
+    },
+
+    // "+" junto a Paquete — común a Crear/Actualizar.
+    onNewPackage: function () {
+      if (!this._pNewPackageDialog) {
+        this._pNewPackageDialog = this.loadFragment({ name: "monitoringis.shell.fragment.NewPackageDialog" });
+      }
+      this._pNewPackageDialog.then(oDialog => oDialog.open());
+    },
+
+    onPackageNameLiveChange: function (oEvent) {
+      const sName = oEvent.getParameter("value");
+      this.byId("packageTechnicalName").setValue(sName.replace(/[^a-zA-Z0-9]/g, ""));
+    },
+
+    onCreatePackageConfirm: function () {
+      const oResourceBundle = this._resourceBundle();
+      const sName = this.byId("packageName").getValue().trim();
+      const sTechnicalName = this.byId("packageTechnicalName").getValue().trim();
+      const sShortText = this.byId("packageShortText").getValue().trim();
+
+      if (!sName || !sTechnicalName || !sShortText) {
+        MessageBox.error(oResourceBundle.getText("allFieldsRequired"));
+        return;
+      }
+
+      this._applySystemHeader();
+
+      const oOperation = this.getView().getModel().bindContext("/createPackage(...)");
+      oOperation.setParameter("id", sTechnicalName);
+      oOperation.setParameter("name", sName);
+      oOperation.setParameter("shortText", sShortText);
+
+      oOperation.execute()
+        .then(() => {
+          const oResult = oOperation.getBoundContext().getObject();
+          MessageToast.show(oResourceBundle.getText("packageCreated", [oResult.Name]));
+          this.byId("newPackageDialog").close();
+          this._resetPackageDialogFields();
+          this._loadPackages();
+          this._selectPackage(oResult.Id);
+        })
+        .catch(oError => {
+          MessageBox.error(oError.message || oResourceBundle.getText("designError"));
+        });
+    },
+
+    onCreatePackageCancel: function () {
+      this.byId("newPackageDialog").close();
+      this._resetPackageDialogFields();
+    },
+
+    _resetPackageDialogFields: function () {
+      ["packageName", "packageTechnicalName"].forEach(sId => this.byId(sId).setValue(""));
+      this.byId("packageShortText").setValue("");
     },
 
     _loadPackageArtifacts: function (sPackageId) {
@@ -169,12 +234,25 @@ sap.ui.define([
       if (!sPackageId) return;
 
       this._callFunction("getPackageArtifacts", { packageId: sPackageId })
-        .then(oResult => oModel.setProperty("/artifacts", oResult.value || []))
+        .then(oResult => {
+          const aArtifacts = oResult.value || [];
+          oModel.setProperty("/artifacts", aArtifacts);
+          // sap.m.Select defaults to forceSelection=true: with a single (or, after
+          // this list loads, the first) item it selects it visually on its own,
+          // but that auto-selection never fires "change" — only a real click does.
+          // Without this, a package with exactly one iflow left /artifactId (and
+          // everything derived from it) empty forever despite looking selected.
+          if (aArtifacts.length) this._selectArtifact(aArtifacts[0].Id);
+        })
         .catch(oError => MessageBox.error(oError.message || this._resourceBundle().getText("designError")));
     },
 
     onArtifactChange: function (oEvent) {
       const sArtifactId = oEvent.getParameter("selectedItem") ? oEvent.getParameter("selectedItem").getKey() : oEvent.getSource().getSelectedKey();
+      this._selectArtifact(sArtifactId);
+    },
+
+    _selectArtifact: function (sArtifactId) {
       const oModel = this.getView().getModel("iflowDesign");
       oModel.setProperty("/artifactId", sArtifactId);
       oModel.setProperty("/proposal", null);
@@ -230,8 +308,16 @@ sap.ui.define([
       const sName = oModel.getProperty("/name");
       const sAiInputMode = oModel.getProperty("/aiInputMode");
 
-      if (!sPackageId || !sArtifactId || (sMode === "CREATE" && !sName)) {
+      if (!sPackageId) {
+        MessageBox.error(oResourceBundle.getText("missingPackage"));
+        return;
+      }
+      if (sMode === "CREATE" && !sName) {
         MessageBox.error(oResourceBundle.getText("missingRequiredFields"));
+        return;
+      }
+      if (sMode === "UPDATE" && !sArtifactId) {
+        MessageBox.error(oResourceBundle.getText("missingArtifact"));
         return;
       }
       if (sAiInputMode === "PROMPT" && !oModel.getProperty("/prompt")) {

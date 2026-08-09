@@ -23,6 +23,11 @@
   },
   "private": true,
   "cds": {
+    "server": {
+      "body_parser": {
+        "limit": "15mb"
+      }
+    },
     "requires": {
       "[production]": {
         "auth": "xsuaa"

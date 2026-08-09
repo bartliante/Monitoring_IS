@@ -18,3 +18,7 @@ mta_archives/
 
 # @cap-js/cds-typer
 @cds-models
+
+# Iflows de referencia subidos para extraer ejemplos de componentes (pueden contener
+# datos reales de cliente en parameters.prop) — nunca deben commitearse tal cual.
+srv/templates/*_PROD.zip

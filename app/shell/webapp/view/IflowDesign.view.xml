@@ -31,15 +31,22 @@
         <core:Title text="{i18n>iflowDataTitle}"/>
 
         <Label text="{i18n>packageLabel}" required="true"/>
-        <Select
-          id="packageSelect"
-          items="{path: 'iflowDesign>/packages'}"
-          selectedKey="{iflowDesign>/packageId}"
-          change=".onPackageChange"
-          width="100%"
-        >
-          <core:Item key="{iflowDesign>Id}" text="{iflowDesign>Name}"/>
-        </Select>
+        <HBox width="100%" alignItems="Center">
+          <Select
+            id="packageSelect"
+            items="{path: 'iflowDesign>/packages'}"
+            selectedKey="{iflowDesign>/packageId}"
+            change=".onPackageChange"
+            autoAdjustWidth="false"
+            class="sapUiTinyMarginEnd"
+          >
+            <layoutData>
+              <FlexItemData growFactor="1"/>
+            </layoutData>
+            <core:Item key="{iflowDesign>Id}" text="{iflowDesign>Name}"/>
+          </Select>
+          <Button icon="sap-icon://add" tooltip="{i18n>newPackageTooltip}" press=".onNewPackage"/>
+        </HBox>
 
         <Label text="{i18n>iflowSelectLabel}" required="true" visible="{= ${iflowDesign>/mode} === 'UPDATE' }"/>
         <Select

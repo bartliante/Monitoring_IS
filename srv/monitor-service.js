@@ -2,7 +2,7 @@ const cds = require('@sap/cds')
 const { SELECT } = cds.ql
 
 const destinationsAdmin = require('./lib/destinations-admin')
-const { getRemoteFor, invalidate, rawGet, odataKey } = require('./lib/remote-connect')
+const { getRemoteFor, invalidate, rawGet, rawRequest, odataKey } = require('./lib/remote-connect')
 const { translateMessageProcessingLogsQuery, criticalityForStatus } = require('./lib/query-translate')
 const {
   downloadIflowZip, extractRelevantFiles, applyFixToZip, applyFilesToZip, buildIflowFromTemplate,
@@ -113,7 +113,11 @@ module.exports = cds.service.impl(async function () {
     if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
     const { artifactId } = req.data
     try {
-      const text = await rawGet(system, `/IntegrationDesigntimeArtifacts(Id=${odataKey(artifactId)},Version=${odataKey('active')})?$format=json`)
+      // No "?$format=json" here — verified against a real tenant that this exact
+      // combination (single-key GET on this entity + explicit $format=json) 501s
+      // with "No message reference given", for both brand-new and long-existing
+      // deployed iflows alike. The plain GET already comes back as JSON by default.
+      const text = await rawGet(system, `/IntegrationDesigntimeArtifacts(Id=${odataKey(artifactId)},Version=${odataKey('active')})`)
       const d = JSON.parse(text).d
       return {
         Id: d.Id, PackageId: d.PackageId, Name: d.Name,
@@ -239,9 +243,9 @@ module.exports = cds.service.impl(async function () {
       const zipBuffer = mode === 'CREATE'
         ? buildIflowFromTemplate({ id: artifactId, name: artifactName, description, sender, receiver })
         : await downloadIflowZip(system, artifactId)
-      const { flowXml, scripts } = extractRelevantFiles(zipBuffer)
+      const { flowXml, scripts, parameters } = extractRelevantFiles(zipBuffer)
 
-      const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts })
+      const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters })
       const newZip = applyFilesToZip(zipBuffer, proposal.files)
 
       iflowDesignCache.set(`${system}::${artifactId}`, {
@@ -280,6 +284,23 @@ module.exports = cds.service.impl(async function () {
         TaskId: String(taskId),
         Message: cached.mode === 'CREATE' ? 'Iflow creado y despliegue iniciado' : 'Iflow actualizado y despliegue iniciado'
       }
+    } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('createPackage', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const { id, name, shortText } = req.data
+    if (!id || !name || !shortText) return req.reject(400, 'Nombre, nombre técnico y descripción corta son obligatorios')
+    try {
+      await rawRequest(system, '/IntegrationPackages', {
+        method: 'post',
+        headers: { 'Content-Type': 'application/json' },
+        data: { Id: id, Name: name, ShortText: shortText }
+      })
+      return { Id: id, Name: name }
     } catch (e) {
       return req.reject(500, e.message)
     }
