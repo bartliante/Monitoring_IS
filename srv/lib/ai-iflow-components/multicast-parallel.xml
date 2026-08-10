@@ -1,0 +1,23 @@
+<bpmn2:parallelGateway id="ParallelGateway_1029" name="Parallel Multicast 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.1</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>Multicast</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::Multicast/version::1.1.1</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>subActivityType</key>
+                    <value>parallel</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_43</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_1033</bpmn2:outgoing>
+            <bpmn2:outgoing>SequenceFlow_1030</bpmn2:outgoing>
+        </bpmn2:parallelGateway>

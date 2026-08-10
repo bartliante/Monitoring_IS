@@ -60,10 +60,17 @@ plantilla, que es un componente distinto) hace fallar el build con errores como 
 version Y is not supported" o "component is not available in your design workspace", incluso con \
 adaptadores en principio estándar como HTTP u OData.
 - Si más abajo se te da una sección "## Componentes de referencia reales", esos fragmentos son EJEMPLOS \
-REALES ya verificados (extraídos de un iflow real que sí despliega) — cuando necesites ese tipo de \
-componente, COPIA exactamente sus propiedades "cmdVariantUri"/"componentVersion"/"TransportProtocolVersion" \
-tal cual aparecen (adaptando solo dirección/address/credenciales/valores de negocio a tu caso), en vez de \
-inventar una versión. Si alguno trae una nota "caveat", inclúyela adaptada en "warnings".
+REALES ya verificados (extraídos de iflows reales que sí despliegan) — cubren adaptadores en ambas \
+direcciones (HTTP/SOAP/OData V2/OData V4/JDBC/SFTP/AS2/IDoc/JMS/Mail/ProcessDirect/SuccessFactors), pasos de \
+enrutado/división/combinación (Router, Splitter, Gather, Join, Multicast), mapeo (Message Mapping), \
+llamadas a subprocesos (Local Integration Process, Looping Process) y manejo de errores (Exception \
+Subprocess). Cuando necesites ese tipo de componente, COPIA exactamente sus propiedades \
+"cmdVariantUri"/"componentVersion"/"TransportProtocolVersion" tal cual aparecen (adaptando solo dirección/ \
+address/credenciales/valores de negocio a tu caso), en vez de inventar una versión. Si alguno trae una nota \
+"caveat", inclúyela adaptada en "warnings". Para el patrón "Local Integration Process": son DOS piezas que \
+van siempre juntas — el elemento "process" del subproceso (sibling de tu proceso principal, con su propio \
+id) y el elemento "callActivity" que lo invoca (con "processId" apuntando exactamente a ese id) — copia \
+ambas piezas o ninguna, nunca solo una.
 - Para cualquier adaptador/canal real que NECESITES pero para el que NO se te haya dado un componente de \
 referencia arriba: NO lo inventes. Implementa un paso "Content Modifier" + un script Groovy nuevo (bajo \
 src/main/resources/script/) que simule/registre esa llamada (p. ej. deja un comentario TODO y un log con lo \

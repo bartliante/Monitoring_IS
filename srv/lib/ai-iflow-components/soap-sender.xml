@@ -1,11 +1,15 @@
-<bpmn2:messageFlow id="MessageFlow_1000" name="SuccessFactors" sourceRef="Participant_999" targetRef="ServiceTask_995">
+<bpmn2:messageFlow id="MessageFlow_4" name="SOAP" sourceRef="Participant_1" targetRef="StartEvent_2">
             <bpmn2:extensionElements>
                 <ifl:property>
                     <key>Description</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>pagination</key>
+                    <key>WSSecurityType</key>
+                    <value>VerifyMessage</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>PublicKeyAliasResponseEncryption</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
@@ -13,124 +17,124 @@
                     <value>sap</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>resourcePath</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>customQueryOptions</key>
-                    <value/>
+                    <key>maximumAttachmentSize</key>
+                    <value>100</value>
                 </ifl:property>
                 <ifl:property>
                     <key>Name</key>
-                    <value>SuccessFactors</value>
+                    <value>SOAP</value>
                 </ifl:property>
                 <ifl:property>
                     <key>TransportProtocolVersion</key>
-                    <value>1.21.0</value>
+                    <value>1.14.0</value>
                 </ifl:property>
                 <ifl:property>
                     <key>ComponentSWCVName</key>
                     <value>external</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>proxyPort</key>
+                    <key>useWSAddressing</key>
+                    <value>0</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>soapWsdlURL</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>receiveTimeOut</key>
-                    <value>1</value>
+                    <key>soapOptions</key>
+                    <value>cxfRobust</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>sfsfODataReceiverDataCenterUrl</key>
-                    <value>Other</value>
+                    <key>CheckTimeStamp</key>
+                    <value>0</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>alias</key>
+                    <key>soapServiceName</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>contentType</key>
-                    <value>application/atom+xml</value>
+                    <key>WSSecurity_SignatureAlgorithm_Inbound</key>
+                    <value>SHA1</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>SigningOrder</key>
+                    <value>SignBeforeEncryption</value>
                 </ifl:property>
                 <ifl:property>
                     <key>MessageProtocol</key>
-                    <value>OData V2</value>
+                    <value>SOAP 1.x</value>
                 </ifl:property>
                 <ifl:property>
                     <key>ComponentSWCVId</key>
-                    <value>1.21.0</value>
+                    <value>1.14.0</value>
                 </ifl:property>
                 <ifl:property>
                     <key>direction</key>
-                    <value>Receiver</value>
+                    <value>Sender</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>clientCertificates</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>X509TokenAssertion</key>
+                    <value>WssX509V3Token10</value>
                 </ifl:property>
                 <ifl:property>
                     <key>ComponentType</key>
-                    <value>SuccessFactors</value>
+                    <value>SOAP</value>
                 </ifl:property>
                 <ifl:property>
                     <key>address</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>acceptEncoding</key>
-                    <value>gzip</value>
+                    <key>maximumBodySize</key>
+                    <value>40</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>queryOptions</key>
+                    <key>soapWsdlPortName</key>
                     <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>proxyType</key>
-                    <value>default</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>paging</key>
-                    <value>snapshot</value>
                 </ifl:property>
                 <ifl:property>
                     <key>componentVersion</key>
-                    <value>1.21</value>
+                    <value>1.9</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>urlSuffixSfOData</key>
-                    <value>/odata/v2</value>
+                    <key>messageExchangePattern</key>
+                    <value>RequestReply</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>proxyHost</key>
-                    <value/>
+                    <key>WSSecurity</key>
+                    <value>None</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>edmxFilePath</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>enableTLSSessionReuse</key>
-                    <value>true</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>odatapagesize</key>
+                    <key>PrivateKeyAliasResponseSigning</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
                     <key>system</key>
-                    <value>Content Enricher 1</value>
+                    <value>Sender_SOAP</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>authenticationMethod</key>
-                    <value>Basic</value>
+                    <key>SaveIncomingSignedMessage</key>
+                    <value>0</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>retryOnFailure</key>
+                    <key>SenderBasicSecurityProfileCompliant</key>
                     <value>1</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>whitelistResponseHeaders</key>
-                    <value/>
+                    <key>RecipientTokenIncludeStrategy</key>
+                    <value>Never</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>enableBatchProcessing</key>
-                    <value/>
+                    <key>AlgorithmSuiteAssertion</key>
+                    <value>Basic128Rsa15</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>serviceDefinition</key>
+                    <value>Manual</value>
                 </ifl:property>
                 <ifl:property>
                     <key>TransportProtocol</key>
@@ -138,27 +142,23 @@
                 </ifl:property>
                 <ifl:property>
                     <key>cmdVariantUri</key>
-                    <value>ctype::AdapterVariant/cname::sap:SuccessFactors/tp::HTTP/mp::OData V2/direction::Receiver/version::1.21.1</value>
+                    <value>ctype::AdapterVariant/cname::sap:SOAP/tp::HTTP/mp::SOAP 1.x/direction::Sender/version::1.9.3</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>fields</key>
-                    <value/>
+                    <key>userRole</key>
+                    <value>ESBMessaging.send</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>characterEncoding</key>
-                    <value>none</value>
+                    <key>InitiatorTokenIncludeStrategy</key>
+                    <value>AlwaysToRecipient</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>whitelistRequestHeaders</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>operation</key>
-                    <value>Query(GET)</value>
+                    <key>senderAuthType</key>
+                    <value>RoleBased</value>
                 </ifl:property>
                 <ifl:property>
                     <key>MessageProtocolVersion</key>
-                    <value>1.21.0</value>
+                    <value>1.14.0</value>
                 </ifl:property>
             </bpmn2:extensionElements>
         </bpmn2:messageFlow>

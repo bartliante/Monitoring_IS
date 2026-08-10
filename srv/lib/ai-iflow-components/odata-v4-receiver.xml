@@ -1,11 +1,19 @@
-<bpmn2:messageFlow id="MessageFlow_1000" name="SuccessFactors" sourceRef="Participant_999" targetRef="ServiceTask_995">
+<bpmn2:messageFlow id="MessageFlow_23" name="OData_V4" sourceRef="ServiceTask_20" targetRef="Participant_18">
             <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>batchEntities</key>
+                    <value/>
+                </ifl:property>
                 <ifl:property>
                     <key>Description</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
                     <key>pagination</key>
+                    <value>false</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>odataCertAuthPrivateKeyAlias</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
@@ -13,20 +21,20 @@
                     <value>sap</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>resourcePath</key>
+                    <key>odatav4OperationExpression</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>customQueryOptions</key>
+                    <key>metadataAllowedURIParams</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
                     <key>Name</key>
-                    <value>SuccessFactors</value>
+                    <value>OData_V4</value>
                 </ifl:property>
                 <ifl:property>
                     <key>TransportProtocolVersion</key>
-                    <value>1.21.0</value>
+                    <value>1.30.1</value>
                 </ifl:property>
                 <ifl:property>
                     <key>ComponentSWCVName</key>
@@ -37,44 +45,64 @@
                     <value/>
                 </ifl:property>
                 <ifl:property>
+                    <key>enableMPLAttachments</key>
+                    <value>true</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>csrfEnabled</key>
+                    <value>true</value>
+                </ifl:property>
+                <ifl:property>
                     <key>receiveTimeOut</key>
                     <value>1</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>sfsfODataReceiverDataCenterUrl</key>
-                    <value>Other</value>
+                    <key>connectionReuse</key>
+                    <value>true</value>
                 </ifl:property>
                 <ifl:property>
                     <key>alias</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>contentType</key>
-                    <value>application/atom+xml</value>
-                </ifl:property>
-                <ifl:property>
                     <key>MessageProtocol</key>
-                    <value>OData V2</value>
+                    <value>OData V4</value>
                 </ifl:property>
                 <ifl:property>
                     <key>ComponentSWCVId</key>
-                    <value>1.21.0</value>
+                    <value>1.30.1</value>
                 </ifl:property>
                 <ifl:property>
                     <key>direction</key>
                     <value>Receiver</value>
                 </ifl:property>
                 <ifl:property>
+                    <key>scc_location_id</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>metadataAllowedHeaders</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
                     <key>ComponentType</key>
-                    <value>SuccessFactors</value>
+                    <value>HCIOData</value>
                 </ifl:property>
                 <ifl:property>
                     <key>address</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>acceptEncoding</key>
-                    <value>gzip</value>
+                    <key>resourcePathForOdatav4</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>isXSDGenerationRequired</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>allowChunking</key>
+                    <value>false</value>
                 </ifl:property>
                 <ifl:property>
                     <key>queryOptions</key>
@@ -85,16 +113,8 @@
                     <value>default</value>
                 </ifl:property>
                 <ifl:property>
-                    <key>paging</key>
-                    <value>snapshot</value>
-                </ifl:property>
-                <ifl:property>
                     <key>componentVersion</key>
-                    <value>1.21</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>urlSuffixSfOData</key>
-                    <value>/odata/v2</value>
+                    <value>1.23</value>
                 </ifl:property>
                 <ifl:property>
                     <key>proxyHost</key>
@@ -105,32 +125,16 @@
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>enableTLSSessionReuse</key>
-                    <value>true</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>odatapagesize</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
                     <key>system</key>
-                    <value>Content Enricher 1</value>
+                    <value>Receiver1</value>
                 </ifl:property>
                 <ifl:property>
                     <key>authenticationMethod</key>
-                    <value>Basic</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>retryOnFailure</key>
-                    <value>1</value>
+                    <value>None</value>
                 </ifl:property>
                 <ifl:property>
                     <key>whitelistResponseHeaders</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>enableBatchProcessing</key>
-                    <value/>
+                    <value>traceparent</value>
                 </ifl:property>
                 <ifl:property>
                     <key>TransportProtocol</key>
@@ -138,27 +142,23 @@
                 </ifl:property>
                 <ifl:property>
                     <key>cmdVariantUri</key>
-                    <value>ctype::AdapterVariant/cname::sap:SuccessFactors/tp::HTTP/mp::OData V2/direction::Receiver/version::1.21.1</value>
+                    <value>ctype::AdapterVariant/cname::sap:HCIOData/tp::HTTP/mp::OData V4/direction::Receiver/version::1.23.0</value>
                 </ifl:property>
                 <ifl:property>
                     <key>fields</key>
                     <value/>
                 </ifl:property>
                 <ifl:property>
-                    <key>characterEncoding</key>
-                    <value>none</value>
-                </ifl:property>
-                <ifl:property>
                     <key>whitelistRequestHeaders</key>
-                    <value/>
+                    <value>traceparent</value>
                 </ifl:property>
                 <ifl:property>
                     <key>operation</key>
-                    <value>Query(GET)</value>
+                    <value>get</value>
                 </ifl:property>
                 <ifl:property>
                     <key>MessageProtocolVersion</key>
-                    <value>1.21.0</value>
+                    <value>1.30.1</value>
                 </ifl:property>
             </bpmn2:extensionElements>
         </bpmn2:messageFlow>

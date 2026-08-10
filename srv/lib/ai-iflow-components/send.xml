@@ -1,0 +1,18 @@
+<bpmn2:serviceTask id="ServiceTask_1001" name="Send 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.0</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>Send</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::Send/version::1.0.4</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_59</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_1002</bpmn2:outgoing>
+        </bpmn2:serviceTask>

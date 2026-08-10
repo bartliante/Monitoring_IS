@@ -1,0 +1,26 @@
+<bpmn2:serviceTask id="ServiceTask_57" name="Poll Enrich 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>aggregationAlgorithm</key>
+                    <value>UseLatest</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.1</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>PollEnrich</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::PollEnrich/version::1.1.0</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>stopOnNoMsgFound</key>
+                    <value>false</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_58</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_59</bpmn2:outgoing>
+        </bpmn2:serviceTask>

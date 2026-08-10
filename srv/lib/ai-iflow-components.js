@@ -1,13 +1,22 @@
-// Real, working component snippets (BPMN2/ifl XML) extracted from an actual production
-// iflow the user shared for exactly this purpose — sanitized (customer-specific values
+// Real, working component snippets (BPMN2/ifl XML) extracted from real iflows the user
+// shared for exactly this purpose — sanitized where needed (customer-specific values
 // replaced with generic placeholders; the exact cmdVariantUri/componentVersion/protocol
 // fields, which are the load-bearing part, are left untouched). This exists because the
 // AI has no way to know which adapter *version* is valid for a given tenant on its own —
 // guessing (even copying "1.0" from the generic Sender/Receiver participant) reliably
 // produces iflows that build/deploy-fail with errors like "This component X with version
-// Y is not supported" or "Timer is not configured" (both seen against a real tenant
-// before this existed). Giving the AI a real, previously-deployed example to copy from is
-// far more reliable than asking it to recall the right version from training data.
+// Y is not supported", "Timer is not configured", or outright Java exceptions on create
+// (wrong parameters.propdef root element, missing required <description/> child) — all
+// seen and fixed against a real tenant before this library existed.
+//
+// Two source iflows, two different purposes:
+// - A real production flow (business logic scrubbed out where it mattered) gave the
+//   first few adapters/steps and, crucially, the Timer's externalized "custom:schedule"
+//   parameter pattern (parameters.prop/parameters.propdef) — not obvious from the .iflw
+//   alone, and the only way this got discovered.
+// - A purpose-built "catalog" iflow (every component type dragged onto a canvas with no
+//   real logic — nothing to sanitize) gave broad, clean coverage: most adapters in both
+//   directions, routing/splitting/merging steps, mapping, and process-call patterns.
 //
 // Caveat that does NOT go away with a correct version string: SuccessFactors (and any
 // other certified/product-specific adapter) still requires that adapter's content package
@@ -24,52 +33,68 @@ function readSnippet(file) {
   return fs.readFileSync(path.join(DIR, file), 'utf8')
 }
 
+const CERTIFIED_ADAPTER_CAVEAT = 'Este adaptador es un paquete de contenido certificado — aunque la versión de ' +
+  'este ejemplo es real y correcta, sigue haciendo falta que el paquete esté instalado en el tenant de ' +
+  'destino. Si el despliegue falla con "not supported in Cloud Integration profile" a pesar de usar esta ' +
+  'versión exacta, es porque el paquete no está instalado ahí, no porque la versión esté mal — avísalo en ' +
+  '"warnings".'
+
 const COMPONENTS = [
-  {
-    id: 'http-receiver',
-    label: 'Adaptador HTTP (Receiver)',
-    keywords: /\bhttp\b|\brest\b|\bapi\b|\bwebservice\b/i,
-    file: 'http-receiver.xml'
-  },
-  {
-    id: 'mail-receiver',
-    label: 'Adaptador Mail/SMTP (Receiver)',
-    keywords: /\bmail\b|\bcorreo\b|\bemail\b|\bsmtp\b|\bnotificaci/i,
-    file: 'mail-receiver.xml'
-  },
+  // --- Adaptadores ---
+  { id: 'http-receiver', label: 'Adaptador HTTP (Receiver)', keywords: /\bhttp\b|\brest\b|\bapi\b|\bwebservice\b/i, file: 'http-receiver.xml' },
+  { id: 'soap-receiver', label: 'Adaptador SOAP (Receiver)', keywords: /\bsoap\b|\bwsdl\b/i, file: 'soap-receiver.xml' },
+  { id: 'soap-sender', label: 'Adaptador SOAP (Sender)', keywords: /\bsoap\b|\bwsdl\b/i, file: 'soap-sender.xml' },
+  { id: 'jdbc-receiver', label: 'Adaptador JDBC (Receiver)', keywords: /\bjdbc\b|base de datos|\bsql\b|\bbbdd\b/i, file: 'jdbc-receiver.xml' },
+  { id: 'sftp-receiver', label: 'Adaptador SFTP (Receiver)', keywords: /\bsftp\b|\bftp\b|fichero/i, file: 'sftp-receiver.xml' },
+  { id: 'sftp-sender', label: 'Adaptador SFTP (Sender)', keywords: /\bsftp\b|\bftp\b|fichero/i, file: 'sftp-sender.xml' },
+  { id: 'pollingsftp-sender', label: 'Adaptador Polling SFTP (Sender)', keywords: /\bsftp\b|polling|\bftp\b/i, file: 'pollingsftp-sender.xml' },
+  { id: 'as2-sender', label: 'Adaptador AS2 (Sender)', keywords: /\bas2\b/i, file: 'as2-sender.xml' },
+  { id: 'as2-receiver', label: 'Adaptador AS2 (Receiver)', keywords: /\bas2\b/i, file: 'as2-receiver.xml' },
+  { id: 'idoc-receiver', label: 'Adaptador IDoc (Receiver)', keywords: /\bidoc\b|\bsap\s*ecc\b|\bsap\s*erp\b/i, file: 'idoc-receiver.xml' },
+  { id: 'idoc-sender', label: 'Adaptador IDoc (Sender)', keywords: /\bidoc\b|\bsap\s*ecc\b|\bsap\s*erp\b/i, file: 'idoc-sender.xml' },
+  { id: 'jms-receiver', label: 'Adaptador JMS (Receiver)', keywords: /\bjms\b|\bcola\b|\bqueue\b/i, file: 'jms-receiver.xml' },
+  { id: 'jms-sender', label: 'Adaptador JMS (Sender)', keywords: /\bjms\b|\bcola\b|\bqueue\b/i, file: 'jms-sender.xml' },
+  { id: 'mail-receiver', label: 'Adaptador Mail/SMTP (Receiver)', keywords: /\bmail\b|\bcorreo\b|\bemail\b|\bsmtp\b|\bnotificaci/i, file: 'mail-receiver.xml' },
+  { id: 'mail-sender-imap', label: 'Adaptador Mail/IMAP (Sender)', keywords: /\bimap\b/i, file: 'mail-sender-imap.xml' },
+  { id: 'mail-sender-pop3', label: 'Adaptador Mail/POP3 (Sender)', keywords: /\bpop3\b/i, file: 'mail-sender-pop3.xml' },
+  { id: 'odata-v2-receiver', label: 'Adaptador OData V2 genérico (Receiver)', keywords: /odata\s*v?2|\bodata\b/i, file: 'odata-v2-receiver.xml' },
+  { id: 'odata-v4-receiver', label: 'Adaptador OData V4 genérico (Receiver)', keywords: /odata\s*v?4/i, file: 'odata-v4-receiver.xml' },
+  { id: 'odata-v2-sender', label: 'Adaptador OData V2 genérico (Sender, exponer servicio)', keywords: /odata\s*v?2.*expone|expone.*odata|odata\s*v?2.*sender/i, file: 'odata-v2-sender.xml' },
+  { id: 'processdirect-receiver', label: 'Adaptador ProcessDirect (Receiver)', keywords: /processdirect|process\s*direct/i, file: 'processdirect-receiver.xml' },
+  { id: 'processdirect-sender', label: 'Adaptador ProcessDirect (Sender)', keywords: /processdirect|process\s*direct/i, file: 'processdirect-sender.xml' },
   {
     id: 'successfactors-odata-receiver',
     label: 'Adaptador SuccessFactors OData V2 (Receiver)',
     keywords: /successfactors|\bsfsf\b/i,
     file: 'successfactors-odata-receiver.xml',
-    caveat: 'Este adaptador es un paquete de contenido certificado — aunque la versión de este ' +
-      'ejemplo es real y correcta, sigue haciendo falta que el paquete "SuccessFactors" esté ' +
-      'instalado en el tenant de destino. Si el despliegue falla con "not supported in Cloud ' +
-      'Integration profile" a pesar de usar esta versión exacta, es porque el paquete no está ' +
-      'instalado ahí, no porque la versión esté mal — avísalo en "warnings".'
+    caveat: CERTIFIED_ADAPTER_CAVEAT
   },
-  {
-    id: 'timer-start-event',
-    label: 'Timer Start Event (con planificación externalizada)',
-    keywords: /\btimer\b|programad|planificaci|\bschedule\b|\bcron\b/i,
-    file: 'timer-start-event.xml'
-  },
-  {
-    id: 'groovy-script',
-    label: 'Paso de script Groovy (CallActivity)',
-    keywords: /.*/, // siempre relevante — casi todos los flujos acaban necesitando algún script
-    file: 'groovy-script.xml'
-  },
-  {
-    id: 'content-modifier',
-    label: 'Content Modifier / Enricher (CallActivity)',
-    keywords: /.*/, // siempre relevante — casi todos los flujos acaban necesitando fijar propiedades/cabeceras
-    file: 'content-modifier.xml'
-  }
+
+  // --- Timer / Programación ---
+  { id: 'timer-start-event', label: 'Timer Start Event (con planificación externalizada)', keywords: /\btimer\b|programad|planificaci|\bschedule\b|\bcron\b/i, file: 'timer-start-event.xml' },
+
+  // --- Pasos de flujo y control ---
+  { id: 'groovy-script', label: 'Paso de script Groovy (CallActivity)', keywords: /.*/, file: 'groovy-script.xml' },
+  { id: 'content-modifier', label: 'Content Modifier / Enricher (CallActivity)', keywords: /.*/, file: 'content-modifier.xml' },
+  { id: 'content-enricher-lookup', label: 'Content Enricher con Lookup (consulta externa antes de enriquecer)', keywords: /lookup|enriquec.*consult|consult.*enriquec/i, file: 'content-enricher-lookup.xml' },
+  { id: 'message-mapping', label: 'Message Mapping (mapeo gráfico)', keywords: /mapeo|mapping|transformaci/i, file: 'message-mapping.xml' },
+  { id: 'router', label: 'Router / Exclusive Gateway (con condiciones de ruta)', keywords: /router|enrutad|condici|\bif\b|bifurcaci/i, file: 'router.xml' },
+  { id: 'splitter', label: 'Splitter (dividir un mensaje en varios)', keywords: /splitter|dividir|split\b/i, file: 'splitter.xml' },
+  { id: 'gather', label: 'Gather (recomponer tras un split)', keywords: /gather|recompon|reagrupar/i, file: 'gather.xml' },
+  { id: 'join', label: 'Join (unir ramas paralelas)', keywords: /\bjoin\b|unir ramas/i, file: 'join.xml' },
+  { id: 'multicast-parallel', label: 'Multicast paralelo', keywords: /multicast.*paralel|paralel.*multicast|en paralelo/i, file: 'multicast-parallel.xml' },
+  { id: 'multicast-sequential', label: 'Multicast secuencial', keywords: /multicast.*secuencial|secuencial.*multicast/i, file: 'multicast-sequential.xml' },
+  { id: 'filter', label: 'Filter (filtrar partes del mensaje)', keywords: /\bfilter\b|\bfiltrar\b/i, file: 'filter.xml' },
+  { id: 'send', label: 'Send (fire-and-forget, sin esperar respuesta)', keywords: /fire.and.forget|sin esperar respuesta|\bsend\b step/i, file: 'send.xml' },
+  { id: 'poll-enrich', label: 'Poll Enrich (enriquecer haciendo poll a otro adaptador)', keywords: /poll\s*enrich/i, file: 'poll-enrich.xml' },
+  { id: 'looping-process-call', label: 'Llamada a proceso con bucle (Looping Process Call)', keywords: /bucle|loop\b|repetir para cada/i, file: 'looping-process-call.xml' },
+  { id: 'local-integration-process', label: 'Definición de un Local Integration Process', keywords: /local integration process|proceso local/i, file: 'local-integration-process.xml' },
+  { id: 'local-process-call', label: 'Llamada a un Local Integration Process (Process Call)', keywords: /local integration process|proceso local|process call/i, file: 'local-process-call.xml' },
+  { id: 'error-subprocess', label: 'Exception Subprocess (manejo de errores)', keywords: /excepci|\berror\b.*manej|manej.*error|try.*catch/i, file: 'error-subprocess.xml' }
 ]
 
-// Returns the components whose keywords match the given requirements text (Timer/adapter
-// snippets are conditional; groovy-script/content-modifier's keywords match everything, so
+// Returns the components whose keywords match the given requirements text (most snippets
+// are conditional on a keyword match; groovy-script/content-modifier match everything, so
 // they're always included as a baseline reference for their correct cmdVariantUri).
 function selectRelevantComponents(text) {
   const haystack = text || ''

@@ -1,0 +1,41 @@
+<bpmn2:callActivity id="CallActivity_1018" name="Looping Process Call 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>postProcessing</key>
+                    <value>throwException</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>loopId</key>
+                    <value>StandardLoopCharacteristics_1786346103475</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>processId</key>
+                    <value>Process_1021</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>expressionType</key>
+                    <value>XML</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.3</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>ProcessCallElement</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::LoopingProcess/version::1.3.0</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>subActivityType</key>
+                    <value>LoopingProcess</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_1012</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_1019</bpmn2:outgoing>
+            <bpmn2:standardLoopCharacteristics id="StandardLoopCharacteristics_1786346103475" loopMaximum="100">
+                <bpmn2:loopCondition id="FormalExpression_1786346103475" xsi:type="bpmn2:tFormalExpression"/>
+            </bpmn2:standardLoopCharacteristics>
+        </bpmn2:callActivity>
