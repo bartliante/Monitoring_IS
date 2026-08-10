@@ -30,7 +30,8 @@ sap.ui.define([
       documentBase64: "",
       documentName: "",
       busy: false,
-      proposal: null
+      proposal: null,
+      diagramSvg: ""
     };
   }
 
@@ -67,6 +68,7 @@ sap.ui.define([
       oModel.setProperty("/sender", "");
       oModel.setProperty("/receiver", "");
       oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
       this._loadPackages();
     },
 
@@ -145,6 +147,7 @@ sap.ui.define([
       oModel.setProperty("/mode", bIsUpdate ? "UPDATE" : "CREATE");
       oModel.setProperty("/modeIndex", iIndex);
       oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
       oModel.setProperty("/name", "");
       oModel.setProperty("/id", "");
       oModel.setProperty("/description", "");
@@ -165,6 +168,7 @@ sap.ui.define([
       const oModel = this.getView().getModel("iflowDesign");
       oModel.setProperty("/packageId", sPackageId);
       oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
       if (oModel.getProperty("/mode") === "UPDATE") this._loadPackageArtifacts(sPackageId);
     },
 
@@ -256,6 +260,7 @@ sap.ui.define([
       const oModel = this.getView().getModel("iflowDesign");
       oModel.setProperty("/artifactId", sArtifactId);
       oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
       if (!sArtifactId) return;
 
       this._callFunction("getIflowDetails", { artifactId: sArtifactId })
@@ -332,6 +337,7 @@ sap.ui.define([
       this._applySystemHeader();
       oModel.setProperty("/busy", true);
       oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
 
       const oOperation = this.getView().getModel().bindContext("/designIflow(...)");
       oOperation.setParameter("mode", sMode);
@@ -351,6 +357,7 @@ sap.ui.define([
           const oResult = oOperation.getBoundContext().getObject();
           oModel.setProperty("/busy", false);
           oModel.setProperty("/proposal", oResult);
+          oModel.setProperty("/diagramSvg", this._buildDiagramSvg(oResult.Diagram));
         })
         .catch(oError => {
           oModel.setProperty("/busy", false);
@@ -377,6 +384,7 @@ sap.ui.define([
           if (oResult.Success) {
             MessageToast.show(oResourceBundle.getText("iflowDesignConfirmed", [oResult.TaskId]));
             oModel.setProperty("/proposal", null);
+            oModel.setProperty("/diagramSvg", "");
           } else {
             MessageBox.error(oResult.Message || oResourceBundle.getText("designError"));
           }
@@ -388,7 +396,154 @@ sap.ui.define([
     },
 
     onDiscardProposal: function () {
-      this.getView().getModel("iflowDesign").setProperty("/proposal", null);
+      const oModel = this.getView().getModel("iflowDesign");
+      oModel.setProperty("/proposal", null);
+      oModel.setProperty("/diagramSvg", "");
+    },
+
+    // Builds a simplified SVG schema of the iflow directly from the .iflw's own BPMNDI
+    // section (the same shape/edge coordinates SAP's graphical editor uses) — there's no
+    // public way to embed that real editor, and the proposed iflow doesn't exist as a
+    // real artifact yet anyway (only after confirming), so this draws our own. Parsing
+    // happens here in the browser (native DOMParser) rather than in the backend so no new
+    // XML-parsing dependency is needed anywhere.
+    // getElementsByTagName on an XML document matches the LITERAL tagName including its
+    // namespace prefix (e.g. "bpmndi:BPMNShape", "dc:Bounds") — it does NOT match by
+    // localName. Since the exact prefixes are only a convention (bpmn2/bpmndi/di/dc/ifl),
+    // not something to hard-code, every lookup below goes through this helper instead of
+    // calling getElementsByTagName with an unprefixed name directly.
+    _byLocalName: function (oRoot, sName) {
+      return Array.prototype.filter.call(oRoot.getElementsByTagName("*"), oEl => oEl.localName === sName);
+    },
+
+    _buildDiagramSvg: function (sFlowXml) {
+      if (!sFlowXml) return "";
+      try {
+        const oDoc = new DOMParser().parseFromString(sFlowXml, "application/xml");
+        if (this._byLocalName(oDoc, "parsererror").length) return "";
+
+        const mElements = {};
+        Array.prototype.forEach.call(oDoc.getElementsByTagName("*"), oEl => {
+          const sId = oEl.getAttribute("id");
+          if (!sId) return;
+          let sActivityType = "";
+          this._byLocalName(oEl, "property").forEach(oProp => {
+            const oKey = this._byLocalName(oProp, "key")[0];
+            const oValue = this._byLocalName(oProp, "value")[0];
+            if (oKey && (oKey.textContent === "activityType" || oKey.textContent === "ComponentType") && oValue && oValue.textContent) {
+              sActivityType = oValue.textContent;
+            }
+          });
+          mElements[sId] = { name: oEl.getAttribute("name") || "", tag: oEl.localName, activityType: sActivityType };
+        });
+
+        const fCategoryFor = sTag => {
+          if (sTag === "startEvent") return "start";
+          if (sTag === "endEvent") return "end";
+          if (sTag === "exclusiveGateway" || sTag === "parallelGateway") return "gateway";
+          if (sTag === "participant") return "participant";
+          return "step";
+        };
+
+        const aShapes = [];
+        this._byLocalName(oDoc, "BPMNShape").forEach(oShape => {
+          const sRef = oShape.getAttribute("bpmnElement");
+          const oInfo = mElements[sRef];
+          const oBounds = this._byLocalName(oShape, "Bounds")[0];
+          if (!oInfo || !oBounds) return;
+          aShapes.push({
+            id: sRef,
+            name: oInfo.name || oInfo.activityType || sRef,
+            subLabel: oInfo.name ? oInfo.activityType : "",
+            category: fCategoryFor(oInfo.tag),
+            x: parseFloat(oBounds.getAttribute("x")),
+            y: parseFloat(oBounds.getAttribute("y")),
+            width: parseFloat(oBounds.getAttribute("width")),
+            height: parseFloat(oBounds.getAttribute("height"))
+          });
+        });
+
+        const aEdges = [];
+        this._byLocalName(oDoc, "BPMNEdge").forEach(oEdge => {
+          const sRef = oEdge.getAttribute("bpmnElement");
+          const oInfo = mElements[sRef];
+          const aPoints = this._byLocalName(oEdge, "waypoint").map(oWp => ({
+            x: parseFloat(oWp.getAttribute("x")),
+            y: parseFloat(oWp.getAttribute("y"))
+          }));
+          if (!aPoints.length) return;
+          aEdges.push({
+            id: sRef,
+            name: oInfo ? oInfo.name : "",
+            category: oInfo && oInfo.tag === "messageFlow" ? "message" : "sequence",
+            points: aPoints
+          });
+        });
+
+        return this._renderDiagramSvg(aShapes, aEdges);
+      } catch (oError) {
+        return "";
+      }
+    },
+
+    _renderDiagramSvg: function (aShapes, aEdges) {
+      if (!aShapes.length) return "";
+
+      const PAD = 20;
+      const minX = Math.min.apply(null, aShapes.map(s => s.x)) - PAD;
+      const minY = Math.min.apply(null, aShapes.map(s => s.y)) - PAD;
+      const maxX = Math.max.apply(null, aShapes.map(s => s.x + s.width)) + PAD;
+      const maxY = Math.max.apply(null, aShapes.map(s => s.y + s.height)) + PAD;
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      const STYLES = {
+        start: { fill: "#e8f5e9", stroke: "#43a047" },
+        end: { fill: "#ffebee", stroke: "#e53935" },
+        gateway: { fill: "#fff8e1", stroke: "#f9a825" },
+        participant: { fill: "#f5f5f5", stroke: "#bdbdbd" },
+        step: { fill: "#e3f2fd", stroke: "#1e88e5" }
+      };
+      const esc = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      let sSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" `
+        + `width="${width}" height="${height}" style="max-width:100%;font-family:sans-serif;">`
+        + `<defs><marker id="diagArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">`
+        + `<path d="M0,0 L6,3 L0,6 Z" fill="#888"/></marker></defs>`;
+
+      aShapes.filter(s => s.category === "participant").forEach(s => {
+        const st = STYLES.participant;
+        sSvg += `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" fill="${st.fill}" stroke="${st.stroke}"/>`
+          + `<text x="${s.x + 6}" y="${s.y + 14}" font-size="11" fill="#616161">${esc(s.name)}</text>`;
+      });
+
+      aEdges.forEach(e => {
+        const sPoints = e.points.map(p => `${p.x},${p.y}`).join(" ");
+        const sDash = e.category === "message" ? 'stroke-dasharray="4 3"' : "";
+        sSvg += `<polyline points="${sPoints}" fill="none" stroke="#888" stroke-width="1.5" ${sDash} marker-end="url(#diagArrow)"/>`;
+        if (e.name) {
+          const oMid = e.points[Math.floor(e.points.length / 2)];
+          sSvg += `<text x="${oMid.x}" y="${oMid.y - 6}" font-size="10" fill="#555">${esc(e.name)}</text>`;
+        }
+      });
+
+      aShapes.filter(s => s.category !== "participant").forEach(s => {
+        const st = STYLES[s.category] || STYLES.step;
+        const cx = s.x + s.width / 2;
+        const cy = s.y + s.height / 2;
+        if (s.category === "start" || s.category === "end") {
+          sSvg += `<circle cx="${cx}" cy="${cy}" r="${Math.min(s.width, s.height) / 2}" fill="${st.fill}" stroke="${st.stroke}" stroke-width="2"/>`;
+        } else if (s.category === "gateway") {
+          sSvg += `<polygon points="${cx},${s.y} ${s.x + s.width},${cy} ${cx},${s.y + s.height} ${s.x},${cy}" fill="${st.fill}" stroke="${st.stroke}" stroke-width="2"/>`;
+        } else {
+          sSvg += `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" fill="${st.fill}" stroke="${st.stroke}" stroke-width="1.5" rx="6"/>`;
+        }
+        sSvg += `<text x="${cx}" y="${cy + (s.subLabel ? -2 : 4)}" font-size="10" text-anchor="middle" fill="#333">${esc(s.name)}</text>`;
+        if (s.subLabel) sSvg += `<text x="${cx}" y="${cy + 11}" font-size="8" text-anchor="middle" fill="#777">${esc(s.subLabel)}</text>`;
+      });
+
+      sSvg += "</svg>";
+      return sSvg;
     }
   });
 });

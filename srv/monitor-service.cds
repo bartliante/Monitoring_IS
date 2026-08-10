@@ -160,6 +160,10 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
       Path    : String;
       Preview : String;
     };
+    // .iflw completo (no truncado) tras aplicar los cambios propuestos — el
+    // frontend lo parsea (BPMNDI) para dibujar un esquema simplificado del
+    // flujo antes de confirmar. Ver IflowDesign.controller.js#_buildDiagramSvg.
+    Diagram  : LargeString;
   }
 
   // Analiza el requerimiento (prompt o diseño técnico adjunto) con IA y

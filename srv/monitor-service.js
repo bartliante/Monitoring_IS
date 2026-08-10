@@ -252,10 +252,15 @@ module.exports = cds.service.impl(async function () {
         mode, packageId, artifactId, artifactName, description, sender, receiver, zipBuffer: newZip
       })
 
+      // .iflw completo tras aplicar los cambios (no el preview truncado de Files) —
+      // el frontend lo parsea (BPMNDI) para dibujar un esquema simplificado.
+      const { flowXml: newFlowXml } = extractRelevantFiles(newZip)
+
       return {
         Summary: proposal.summary,
         Warnings: proposal.warnings || '',
-        Files: proposal.files.map(f => ({ Path: f.path, Preview: f.content.slice(0, 500) }))
+        Files: proposal.files.map(f => ({ Path: f.path, Preview: f.content.slice(0, 500) })),
+        Diagram: newFlowXml[0]?.content || ''
       }
     } catch (e) {
       return req.reject(500, e.message)

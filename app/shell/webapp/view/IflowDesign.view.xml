@@ -137,6 +137,18 @@
           visible="{= !!${iflowDesign>/proposal/Warnings} }"
           class="sapUiSmallMarginBottom"
         />
+        <Label text="{i18n>diagramTitle}" visible="{= !!${iflowDesign>/diagramSvg} }" class="sapUiTinyMarginBottom"/>
+        <ScrollContainer
+          horizontal="true"
+          vertical="false"
+          height="20rem"
+          width="100%"
+          visible="{= !!${iflowDesign>/diagramSvg} }"
+          class="sapUiSmallMarginBottom"
+        >
+          <core:HTML content="{iflowDesign>/diagramSvg}"/>
+        </ScrollContainer>
+
         <Label text="{i18n>proposalFilesTitle}" class="sapUiTinyMarginBottom"/>
         <List items="{iflowDesign>/proposal/Files}" class="sapUiSmallMarginBottom">
           <StandardListItem title="{iflowDesign>Path}" description="{iflowDesign>Preview}" wrapping="true"/>
