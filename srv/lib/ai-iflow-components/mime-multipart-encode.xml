@@ -1,0 +1,38 @@
+<bpmn2:callActivity id="CallActivity_1121" name="MIME Multipart Encoder 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>MultipartAddHeadersInline</key>
+                    <value>false</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>MultipartSubtype</key>
+                    <value>Mixed</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>IncludeHeaders</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>FoldLongHeaders</key>
+                    <value>false</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.2</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>Encoder</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::MIME Multipart Message Encode/version::1.2.0</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>encoderType</key>
+                    <value>MIME Multipart Message Encode</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_1119</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_1122</bpmn2:outgoing>
+        </bpmn2:callActivity>

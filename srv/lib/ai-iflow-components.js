@@ -90,7 +90,34 @@ const COMPONENTS = [
   { id: 'looping-process-call', label: 'Llamada a proceso con bucle (Looping Process Call)', keywords: /bucle|loop\b|repetir para cada/i, file: 'looping-process-call.xml' },
   { id: 'local-integration-process', label: 'Definición de un Local Integration Process', keywords: /local integration process|proceso local/i, file: 'local-integration-process.xml' },
   { id: 'local-process-call', label: 'Llamada a un Local Integration Process (Process Call)', keywords: /local integration process|proceso local|process call/i, file: 'local-process-call.xml' },
-  { id: 'error-subprocess', label: 'Exception Subprocess (manejo de errores)', keywords: /excepci|\berror\b.*manej|manej.*error|try.*catch/i, file: 'error-subprocess.xml' }
+  { id: 'error-subprocess', label: 'Exception Subprocess (manejo de errores)', keywords: /excepci|\berror\b.*manej|manej.*error|try.*catch/i, file: 'error-subprocess.xml' },
+  { id: 'iterating-splitter', label: 'Iterating Splitter (Camel, alternativa a General Splitter)', keywords: /iterating splitter|splitter.*iterat/i, file: 'iterating-splitter.xml' },
+
+  // --- Almacenamiento / variables ---
+  { id: 'data-store-write', label: 'Data Store Operations — Write', keywords: /data\s*store|almac[eé]n.*mensaje|write.*data\s*store/i, file: 'data-store-write.xml' },
+  { id: 'data-store-select', label: 'Data Store Operations — Select', keywords: /data\s*store|almac[eé]n.*mensaje|select.*data\s*store/i, file: 'data-store-select.xml' },
+  { id: 'data-store-get', label: 'Data Store Operations — Get', keywords: /data\s*store|almac[eé]n.*mensaje|get.*data\s*store/i, file: 'data-store-get.xml' },
+  { id: 'data-store-delete', label: 'Data Store Operations — Delete', keywords: /data\s*store|almac[eé]n.*mensaje|delete.*data\s*store/i, file: 'data-store-delete.xml' },
+  { id: 'write-variables', label: 'Write Variables (persistir variables entre ejecuciones)', keywords: /write variables|variables? persist/i, file: 'write-variables.xml' },
+  { id: 'persist', label: 'Persist (guardar el mensaje para Message Store)', keywords: /\bpersist\b|message\s*store/i, file: 'persist.xml' },
+
+  // --- Conversores de formato ---
+  { id: 'csv-to-xml', label: 'Conversor CSV → XML', keywords: /csv.*xml|convert.*csv/i, file: 'csv-to-xml.xml' },
+  { id: 'xml-to-csv', label: 'Conversor XML → CSV', keywords: /xml.*csv|convert.*csv/i, file: 'xml-to-csv.xml' },
+  { id: 'json-to-xml', label: 'Conversor JSON → XML', keywords: /json.*xml/i, file: 'json-to-xml.xml' },
+  { id: 'xml-to-json', label: 'Conversor XML → JSON', keywords: /xml.*json/i, file: 'xml-to-json.xml' },
+  { id: 'edi-to-xml', label: 'Conversor EDI → XML', keywords: /\bedi\b.*xml|edifact/i, file: 'edi-to-xml.xml' },
+  { id: 'xml-to-edi', label: 'Conversor XML → EDI', keywords: /xml.*\bedi\b|edifact/i, file: 'xml-to-edi.xml' },
+  { id: 'base64-decode', label: 'Base64 Decoder', keywords: /base64.*decod|decod.*base64/i, file: 'base64-decode.xml' },
+  { id: 'base64-encode', label: 'Base64 Encoder', keywords: /base64.*encod|encod.*base64/i, file: 'base64-encode.xml' },
+  { id: 'gzip-compress', label: 'GZIP Compression', keywords: /gzip/i, file: 'gzip-compress.xml' },
+  { id: 'gzip-decompress', label: 'GZIP Decompression', keywords: /gzip/i, file: 'gzip-decompress.xml' },
+  { id: 'zip-compress', label: 'ZIP Compression', keywords: /\bzip\b/i, file: 'zip-compress.xml' },
+  { id: 'zip-decompress', label: 'ZIP Decompression', keywords: /\bzip\b/i, file: 'zip-decompress.xml' },
+  { id: 'mime-multipart-decode', label: 'MIME Multipart Decoder', keywords: /mime.*multipart|multipart.*mime/i, file: 'mime-multipart-decode.xml' },
+  { id: 'mime-multipart-encode', label: 'MIME Multipart Encoder', keywords: /mime.*multipart|multipart.*mime/i, file: 'mime-multipart-encode.xml' },
+  { id: 'pgp-decrypt', label: 'PGP Decryptor', keywords: /pgp.*decrypt|descifr.*pgp/i, file: 'pgp-decrypt.xml' },
+  { id: 'pgp-encrypt', label: 'PGP Encryptor', keywords: /pgp.*encrypt|cifr.*pgp/i, file: 'pgp-encrypt.xml' }
 ]
 
 // Returns the components whose keywords match the given requirements text (most snippets

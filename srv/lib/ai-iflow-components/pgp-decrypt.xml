@@ -1,0 +1,26 @@
+<bpmn2:callActivity id="CallActivity_1065" name="PGPDecryptor 1">
+            <bpmn2:extensionElements>
+                <ifl:property>
+                    <key>PgpDecryptionSignerUserIDs</key>
+                    <value/>
+                </ifl:property>
+                <ifl:property>
+                    <key>PgpDecryptionSignatureOption</key>
+                    <value>no_signature_allowed</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>componentVersion</key>
+                    <value>1.2</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>activityType</key>
+                    <value>PgpDecrypt</value>
+                </ifl:property>
+                <ifl:property>
+                    <key>cmdVariantUri</key>
+                    <value>ctype::FlowstepVariant/cname::PgpDecrypt/version::1.2.0</value>
+                </ifl:property>
+            </bpmn2:extensionElements>
+            <bpmn2:incoming>SequenceFlow_1063</bpmn2:incoming>
+            <bpmn2:outgoing>SequenceFlow_1066</bpmn2:outgoing>
+        </bpmn2:callActivity>
