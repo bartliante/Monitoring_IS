@@ -20,6 +20,12 @@ async function designIflow(context) {
       systemInstruction,
       responseMimeType: 'application/json',
       responseSchema: IFLOW_DESIGN_SCHEMA,
+      // maxOutputTokens explícito: con pensamiento dinámico (thinkingBudget: -1) el modelo
+      // puede gastar una parte impredecible del presupuesto en razonar, dejando poco margen
+      // para la respuesta final — visto cortando literalmente a mitad de una etiqueta el
+      // .iflw de un diseño grande (varios adaptadores + subproceso + scripts), sin ningún
+      // error, dejando un iflow que ni el editor gráfico de Integration Suite puede abrir.
+      maxOutputTokens: 65536,
       thinkingConfig: { thinkingBudget: -1 }
     }
   })

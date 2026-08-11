@@ -1,0 +1,242 @@
+### Monitoring_IS — ejemplos de los servicios OData V4 de MonitorService (/monitor)
+### Pensado para la extensión "REST Client" de VS Code (humao.rest-client).
+### Requiere que `cds watch` / `npm run watch` esté corriendo en localhost:4004.
+###
+### Auth: estrategia "mocked" (ver package.json > cds.requires.auth.users) — usuario
+### "alice" tiene los roles Monitor + ConnectionAdmin (puede hacer todo); "bob" solo
+### tiene Monitor (puede leer, pero las acciones que requieren ConnectionAdmin le
+### darán 403). La contraseña no se valida en modo mocked, puede ir vacía.
+###
+### x-system-destination: nombre de una conexión ya creada en el desplegable "Sistema"
+### de la app (ver Systems más abajo para listarlas). Cámbialo por la tuya.
+
+@baseUrl = http://localhost:4004/monitor
+@system = trial
+
+
+###############################################################################
+# Sistemas / conexiones (gestión de destinations)
+###############################################################################
+
+### Listar sistemas configurados
+GET {{baseUrl}}/Systems
+Authorization: Basic YWxpY2U6
+
+### Crear una conexión nueva
+# @name createConnection
+POST {{baseUrl}}/createConnection
+Authorization: Basic YWxpY2U6
+Content-Type: application/json
+
+{
+  "name": "MiTenant",
+  "apiUrl": "https://mitenant.it-cpiXXX.cfapps.eu10-002.hana.ondemand.com",
+  "tokenUrl": "https://mitenant.authentication.eu10.hana.ondemand.com/oauth/token",
+  "clientId": "sb-xxxxxxxx",
+  "clientSecret": "xxxxxxxx"
+}
+
+### Borrar una conexión
+POST {{baseUrl}}/deleteConnection
+Authorization: Basic YWxpY2U6
+Content-Type: application/json
+
+{
+  "name": "MiTenant"
+}
+
+
+###############################################################################
+# Monitoring — List Report / Object Page (todas necesitan x-system-destination)
+###############################################################################
+
+### Listar artefactos en ejecución (para el filtro "IntegrationFlowName")
+GET {{baseUrl}}/Artifacts
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Valores fijos del filtro "Estado"
+GET {{baseUrl}}/StatusValues
+Authorization: Basic YWxpY2U6
+
+### Listar ejecuciones — filtro simple por Estado, ordenado por fecha, top 10
+GET {{baseUrl}}/MessageProcessingLogs?$filter=Status eq 'FAILED'&$orderby=LogStart desc&$top=10
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Listar ejecuciones — filtro por preset de tiempo (campo virtual TimePreset)
+GET {{baseUrl}}/MessageProcessingLogs?$filter=TimePreset eq 'LAST_24_HOURS'&$top=10
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Listar ejecuciones — rango de fechas explícito (campos virtuales CustomFrom/CustomTo)
+GET {{baseUrl}}/MessageProcessingLogs?$filter=CustomFrom eq 2026-08-01T00:00:00Z and CustomTo eq 2026-08-10T00:00:00Z
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Listar ejecuciones — búsqueda libre (campo virtual SearchId: MessageGuid/CorrelationId/ApplicationMessageId)
+GET {{baseUrl}}/MessageProcessingLogs?$filter=SearchId eq 'algún-id'
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Detalle de una ejecución (Object Page) — sustituye el GUID por uno real
+GET {{baseUrl}}/MessageProcessingLogs('00000000-0000-0000-0000-000000000000')
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Traza de error de una ejecución fallida
+GET {{baseUrl}}/getErrorTrace(messageGuid='00000000-0000-0000-0000-000000000000')
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Adjuntos de una ejecución
+GET {{baseUrl}}/getAttachments(messageGuid='00000000-0000-0000-0000-000000000000')
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+
+###############################################################################
+# IA — Sugerencia de corrección y despliegue (sección del Object Page)
+###############################################################################
+
+### Paso 1: analizar el error con IA y proponer una corrección (no toca el tenant)
+# @name analyzeError
+POST {{baseUrl}}/analyzeError
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "messageGuid": "00000000-0000-0000-0000-000000000000"
+}
+
+### Paso 2: aplicar la corrección propuesta y desplegar (usa la caché del paso 1)
+POST {{baseUrl}}/applyFixAndDeploy
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "messageGuid": "00000000-0000-0000-0000-000000000000",
+  "filePath": "src/main/resources/script/miScript.groovy",
+  "proposedCode": "// contenido completo corregido del fichero"
+}
+
+
+###############################################################################
+# Diseño de iflow — Paquetes
+###############################################################################
+
+### Listar paquetes de Integration Suite
+GET {{baseUrl}}/IntegrationPackages
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Crear un paquete nuevo
+POST {{baseUrl}}/createPackage
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "id": "MiPaqueteNuevo",
+  "name": "Mi paquete nuevo",
+  "shortText": "Descripción corta del paquete"
+}
+
+
+###############################################################################
+# Diseño de iflow — Actualizar (seleccionar paquete → iflow existente)
+###############################################################################
+
+### Listar los iflows dentro de un paquete
+GET {{baseUrl}}/getPackageArtifacts(packageId='Test')
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+### Metadatos de un iflow existente (Id/Nombre/Descripción/Sender/Receiver)
+GET {{baseUrl}}/getIflowDetails(artifactId='Test1')
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+
+
+###############################################################################
+# Diseño de iflow — Crear/Actualizar con IA (flujo de 2 pasos: proponer → confirmar)
+###############################################################################
+
+### Paso 1 (modo CREATE): proponer un iflow nuevo a partir de un prompt
+# @name designIflowCreate
+POST {{baseUrl}}/designIflow
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "mode": "CREATE",
+  "packageId": "Test",
+  "artifactId": "Mi_Iflow_Nuevo",
+  "artifactName": "Mi Iflow Nuevo",
+  "description": "Descripción del proceso",
+  "sender": "SistemaOrigen",
+  "receiver": "SistemaDestino",
+  "aiInputMode": "PROMPT",
+  "prompt": "Crea un flujo simple que reciba una llamada HTTP y registre el payload en el log.",
+  "designDocument": "",
+  "designDocumentName": ""
+}
+
+### Paso 1 (modo UPDATE): proponer un cambio sobre un iflow existente
+# @name designIflowUpdate
+POST {{baseUrl}}/designIflow
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "mode": "UPDATE",
+  "packageId": "Test",
+  "artifactId": "Test1",
+  "artifactName": "Test1",
+  "description": "",
+  "sender": "",
+  "receiver": "",
+  "aiInputMode": "PROMPT",
+  "prompt": "Añade un Content Modifier que registre en log el payload recibido.",
+  "designDocument": "",
+  "designDocumentName": ""
+}
+
+### Paso 1 (modo CREATE, diseño técnico adjunto en vez de prompt):
+### "designDocument" es el fichero PDF/Word en base64 y "designDocumentName" su nombre
+### (con la extensión .pdf o .docx, así se sabe qué extractor usar).
+# @name designIflowFromDocument
+POST {{baseUrl}}/designIflow
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "mode": "CREATE",
+  "packageId": "Test",
+  "artifactId": "Mi_Iflow_Desde_Documento",
+  "artifactName": "Mi Iflow Desde Documento",
+  "description": "",
+  "sender": "",
+  "receiver": "",
+  "aiInputMode": "DOCUMENT",
+  "prompt": "",
+  "designDocument": "<contenido en base64 del PDF/Word>",
+  "designDocumentName": "diseño-tecnico.pdf"
+}
+
+### Paso 2: confirmar la propuesta — crea/actualiza el iflow de verdad y lo despliega
+### (necesita haber ejecutado antes uno de los designIflow de arriba con el MISMO
+### x-system-destination y el mismo artifactId — la propuesta se cachea 30 min)
+POST {{baseUrl}}/confirmIflowDesign
+Authorization: Basic YWxpY2U6
+x-system-destination: {{system}}
+Content-Type: application/json
+
+{
+  "artifactId": "Mi_Iflow_Nuevo"
+}

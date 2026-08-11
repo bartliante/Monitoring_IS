@@ -1,0 +1,50 @@
+<bpmn2:messageFlow id="MessageFlow_3580" name="SuccessFactors" sourceRef="ServiceTask_0" targetRef="Participant_3">
+    <bpmn2:extensionElements>
+        <ifl:property><key>sfsfSOAPReceiverDataCenterUrl</key><value>Other</value></ifl:property>
+        <ifl:property><key>Description</key><value/></ifl:property>
+        <ifl:property><key>ComponentNS</key><value>sap</value></ifl:property>
+        <ifl:property><key>Name</key><value>SuccessFactors</value></ifl:property>
+        <ifl:property><key>TransportProtocolVersion</key><value>1.21.0</value></ifl:property>
+        <ifl:property><key>ComponentSWCVName</key><value>external</value></ifl:property>
+        <ifl:property><key>proxyPort</key><value/></ifl:property>
+        <ifl:property><key>receiveTimeOut</key><value>1</value></ifl:property>
+        <ifl:property><key>pagesize</key><value>200</value></ifl:property>
+        <ifl:property><key>alias</key><value/></ifl:property>
+        <ifl:property><key>urlSuffixSOAP</key><value>/sfapi/v1/soap</value></ifl:property>
+        <ifl:property><key>MessageProtocol</key><value>SOAP</value></ifl:property>
+        <ifl:property><key>ComponentSWCVId</key><value>1.21.0</value></ifl:property>
+        <ifl:property><key>direction</key><value>Receiver</value></ifl:property>
+        <ifl:property><key>ComponentType</key><value>SuccessFactors</value></ifl:property>
+        <ifl:property><key>address</key><value/></ifl:property>
+        <ifl:property><key>query</key><value/></ifl:property>
+        <ifl:property><key>proxyType</key><value>default</value></ifl:property>
+        <ifl:property><key>componentVersion</key><value>1.7</value></ifl:property>
+        <ifl:property><key>proxyHost</key><value/></ifl:property>
+        <ifl:property><key>queryType</key><value>querySync</value></ifl:property>
+        <ifl:property><key>timeOut</key><value>1</value></ifl:property>
+        <ifl:property><key>batchProcess</key><value>0</value></ifl:property>
+        <ifl:property><key>system</key><value>Receiver10</value></ifl:property>
+        <ifl:property><key>sfsfSoapAPIParams</key><value/></ifl:property>
+        <ifl:property><key>retryOnFailure</key><value>0</value></ifl:property>
+        <ifl:property><key>TransportProtocol</key><value>HTTP</value></ifl:property>
+        <ifl:property><key>authenticationType</key><value>OAuth2SAMLBearer</value></ifl:property>
+        <ifl:property><key>cmdVariantUri</key><value>ctype::AdapterVariant/cname::sap:SuccessFactors/tp::HTTP/mp::SOAP/direction::Receiver/version::1.7.1</value></ifl:property>
+        <ifl:property><key>fields</key><value/></ifl:property>
+        <ifl:property><key>operation</key><value>Query</value></ifl:property>
+        <ifl:property><key>MessageProtocolVersion</key><value>1.21.0</value></ifl:property>
+        <ifl:property><key>entity</key><value/></ifl:property>
+    </bpmn2:extensionElements>
+</bpmn2:messageFlow>
+
+<!--
+Variante SOAP del adaptador SuccessFactors (distinta del OData V2 de
+successfactors-odata-receiver.xml) — versión real verificada 1.7.1, se usa típicamente para
+consultar la entidad "CompoundEmployee" (consulta SOAP querySync, no expuesta vía OData V2).
+"entity"/"query" quedan vacíos en este ejemplo (se rellenan en el editor gráfico) — pon en
+"entity" el nombre de la entidad a consultar (p. ej. "CompoundEmployee") y en "query" el filtro
+si hace falta uno. cmdVariantUri/versión 1.7.1 son reales y verificados — no los cambies.
+
+Como con el resto de adaptadores: el ServiceTask/callActivity que sea "sourceRef" de este
+messageFlow necesita TAMBIÉN su propio bloque de extensionElements con
+activityType=ExternalCall (ver el componente de referencia "ServiceTask ExternalCall").
+-->

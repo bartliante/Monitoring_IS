@@ -39,6 +39,11 @@ const CERTIFIED_ADAPTER_CAVEAT = 'Este adaptador es un paquete de contenido cert
   'versión exacta, es porque el paquete no está instalado ahí, no porque la versión esté mal — avísalo en ' +
   '"warnings".'
 
+const MAIL_SEND_CAVEAT = 'El paso que envía este Mail (el "sourceRef" del messageFlow) es "fire-and-forget" — ' +
+  'no espera respuesta del servidor SMTP. Debe usar el componente de referencia "Send" ' +
+  '(activityType=Send), NUNCA el bloque "ServiceTask ExternalCall" que sí usan los adaptadores de ' +
+  'petición-respuesta (HTTP, OData, SuccessFactors, SOAP, JDBC...).'
+
 const COMPONENTS = [
   // --- Adaptadores ---
   { id: 'http-receiver', label: 'Adaptador HTTP (Receiver)', keywords: /\bhttp\b|\brest\b|\bapi\b|\bwebservice\b/i, file: 'http-receiver.xml' },
@@ -54,7 +59,13 @@ const COMPONENTS = [
   { id: 'idoc-sender', label: 'Adaptador IDoc (Sender)', keywords: /\bidoc\b|\bsap\s*ecc\b|\bsap\s*erp\b/i, file: 'idoc-sender.xml' },
   { id: 'jms-receiver', label: 'Adaptador JMS (Receiver)', keywords: /\bjms\b|\bcola\b|\bqueue\b/i, file: 'jms-receiver.xml' },
   { id: 'jms-sender', label: 'Adaptador JMS (Sender)', keywords: /\bjms\b|\bcola\b|\bqueue\b/i, file: 'jms-sender.xml' },
-  { id: 'mail-receiver', label: 'Adaptador Mail/SMTP (Receiver)', keywords: /\bmail\b|\bcorreo\b|\bemail\b|\bsmtp\b|\bnotificaci/i, file: 'mail-receiver.xml' },
+  {
+    id: 'mail-receiver',
+    label: 'Adaptador Mail/SMTP (Receiver)',
+    keywords: /\bmail\b|\bcorreo\b|\bemail\b|\bsmtp\b|\bnotificaci/i,
+    file: 'mail-receiver.xml',
+    caveat: MAIL_SEND_CAVEAT
+  },
   { id: 'mail-sender-imap', label: 'Adaptador Mail/IMAP (Sender)', keywords: /\bimap\b/i, file: 'mail-sender-imap.xml' },
   { id: 'mail-sender-pop3', label: 'Adaptador Mail/POP3 (Sender)', keywords: /\bpop3\b/i, file: 'mail-sender-pop3.xml' },
   { id: 'odata-v2-receiver', label: 'Adaptador OData V2 genérico (Receiver)', keywords: /odata\s*v?2|\bodata\b/i, file: 'odata-v2-receiver.xml' },
@@ -69,11 +80,24 @@ const COMPONENTS = [
     file: 'successfactors-odata-receiver.xml',
     caveat: CERTIFIED_ADAPTER_CAVEAT
   },
+  {
+    id: 'successfactors-soap-receiver-compoundemployee',
+    label: 'Adaptador SuccessFactors SOAP (Receiver) — típico para CompoundEmployee',
+    keywords: /successfactors|\bsfsf\b|compoundemployee|compound\s*employee/i,
+    file: 'successfactors-soap-receiver-compoundemployee.xml',
+    caveat: CERTIFIED_ADAPTER_CAVEAT
+  },
 
   // --- Timer / Programación ---
   { id: 'timer-start-event', label: 'Timer Start Event (con planificación externalizada)', keywords: /\btimer\b|programad|planificaci|\bschedule\b|\bcron\b/i, file: 'timer-start-event.xml' },
 
   // --- Pasos de flujo y control ---
+  {
+    id: 'external-call-service-task',
+    label: 'ServiceTask "ExternalCall" — pieza obligatoria junto a CUALQUIER adaptador',
+    keywords: /.*/, // siempre relevante — sin esto el paso queda "sin tipo" y rompe el editor real de SAP
+    file: 'external-call-service-task.xml'
+  },
   { id: 'groovy-script', label: 'Paso de script Groovy (CallActivity)', keywords: /.*/, file: 'groovy-script.xml' },
   { id: 'content-modifier', label: 'Content Modifier / Enricher (CallActivity)', keywords: /.*/, file: 'content-modifier.xml' },
   { id: 'content-enricher-lookup', label: 'Content Enricher con Lookup (consulta externa antes de enriquecer)', keywords: /lookup|enriquec.*consult|consult.*enriquec/i, file: 'content-enricher-lookup.xml' },
@@ -85,7 +109,7 @@ const COMPONENTS = [
   { id: 'multicast-parallel', label: 'Multicast paralelo', keywords: /multicast.*paralel|paralel.*multicast|en paralelo/i, file: 'multicast-parallel.xml' },
   { id: 'multicast-sequential', label: 'Multicast secuencial', keywords: /multicast.*secuencial|secuencial.*multicast/i, file: 'multicast-sequential.xml' },
   { id: 'filter', label: 'Filter (filtrar partes del mensaje)', keywords: /\bfilter\b|\bfiltrar\b/i, file: 'filter.xml' },
-  { id: 'send', label: 'Send (fire-and-forget, sin esperar respuesta)', keywords: /fire.and.forget|sin esperar respuesta|\bsend\b step/i, file: 'send.xml' },
+  { id: 'send', label: 'Send (fire-and-forget, sin esperar respuesta — usar SIEMPRE con el adaptador Mail)', keywords: /fire.and.forget|sin esperar respuesta|\bsend\b step|\bmail\b|\bcorreo\b|\bemail\b|\bsmtp\b|\bnotificaci/i, file: 'send.xml' },
   { id: 'poll-enrich', label: 'Poll Enrich (enriquecer haciendo poll a otro adaptador)', keywords: /poll\s*enrich/i, file: 'poll-enrich.xml' },
   { id: 'looping-process-call', label: 'Llamada a proceso con bucle (Looping Process Call)', keywords: /bucle|loop\b|repetir para cada/i, file: 'looping-process-call.xml' },
   { id: 'local-integration-process', label: 'Definición de un Local Integration Process', keywords: /local integration process|proceso local/i, file: 'local-integration-process.xml' },

@@ -48,6 +48,16 @@ Sin este parámetro "custom:schedule" declarado y con valor en ambos ficheros, e
 despliega como "no configurado" y el build falla con "Timer is not configured. Please set a
 schedule" — el error visto repetidas veces en pruebas reales.
 
+CRÍTICO — visto causando "Error while loading the details of the integration flow" al abrir un \
+iflow real en Integration Suite (el editor no puede ni cargarlo), en un caso donde el build SÍ \
+compilaba: el valor de "schedule1" contiene un "&" LITERAL antes de "trigger.timeZone" — como \
+todo el valor de "timerSchedule" es en sí mismo una cadena con marcado tipo XML (los \
+"<row><cell>...</cell></row>"), ese "&" tiene que ir escapado como "&amp;" (exactamente como en \
+el ejemplo de arriba: "...*&amp;trigger.timeZone\=UTC"), nunca como "&" suelto — un "&" sin \
+escapar ahí rompe el parseo XML que hace el editor gráfico al cargar el panel de configuración \
+del Timer, aunque el `.iflw` en sí sea válido y el build no se queje. Cópialo carácter a \
+carácter tal cual aparece en el ejemplo, sin "simplificarlo" quitando el escape.
+
 Alternativa vista también en un iflow real (construido con el editor gráfico, arrastrando el
 Timer sin externalizar nada): el mismo valor codificado se puede poner LITERAL, directamente en
 "scheduleKey", sin usar "{{timerSchedule}}" ni tocar parameters.prop/propdef en absoluto. Ejemplo

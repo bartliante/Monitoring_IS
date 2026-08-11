@@ -33,7 +33,7 @@
                     <bpmn2:extensionElements>
                         <ifl:property>
                             <key>cmdVariantUri</key>
-                            <value>ctype::FlowstepVariant/cname::ErrorStartEvent</value>
+                            <value>ctype::FlowstepVariant/cname::ErrorStartEvent/version::1.0.0</value>
                         </ifl:property>
                         <ifl:property>
                             <key>activityType</key>
@@ -44,3 +44,16 @@
             </bpmn2:startEvent>
             <bpmn2:sequenceFlow id="SequenceFlow_1028" sourceRef="StartEvent_1026" targetRef="EndEvent_1027"/>
         </bpmn2:subProcess>
+
+<!--
+Corregido el 2026-08-11: el "cmdVariantUri" del ErrorStartEvent venía SIN el segmento de
+versión ("ctype::FlowstepVariant/cname::ErrorStartEvent", sin "/version::X"), a diferencia de
+CUALQUIER otro cmdVariantUri de esta librería, que siempre lo lleva. Un iflow real (celeo) que
+copió este componente tal cual falló en el despliegue con "GenerationFailed" — comparando con
+una versión anterior del mismo iflow (creada antes de que existiera este componente de
+referencia), esa sí tenía el valor completo "ctype::FlowstepVariant/cname::ErrorStartEvent/
+version::1.0.0". Este componente nunca se había verificado a desplegar de forma aislada; no
+asumas que un fragmento "extraído de un iflow real" está necesariamente completo/correcto solo
+por venir de ahí — compáralo contra el patrón del resto de la librería (todo cmdVariantUri
+lleva versión) antes de confiar en él a ciegas.
+-->

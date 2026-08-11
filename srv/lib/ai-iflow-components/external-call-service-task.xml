@@ -1,0 +1,31 @@
+<bpmn2:serviceTask id="ServiceTask_EXAMPLE" name="Nombre descriptivo de la llamada">
+    <bpmn2:extensionElements>
+        <ifl:property><key>componentVersion</key><value>1.0</value></ifl:property>
+        <ifl:property><key>activityType</key><value>ExternalCall</value></ifl:property>
+        <ifl:property><key>cmdVariantUri</key><value>ctype::FlowstepVariant/cname::ExternalCall/version::1.0.4</value></ifl:property>
+    </bpmn2:extensionElements>
+    <bpmn2:incoming>SequenceFlow_EXAMPLE_IN</bpmn2:incoming>
+    <bpmn2:outgoing>SequenceFlow_EXAMPLE_OUT</bpmn2:outgoing>
+</bpmn2:serviceTask>
+
+<!--
+IMPORTANTE — visto causando un error real: "Error while loading the details of the
+integration flow" al abrir el iflow en Integration Suite, y el esquema del panel de
+propuesta saliendo mal formado, todo por esta pieza que falta.
+
+Cada vez que conectes un adaptador (Receiver) — HTTP, SOAP, OData, JDBC, SFTP, Mail,
+SuccessFactors, lo que sea — al canal (el <bpmn2:messageFlow>, ya cubierto en los
+componentes de referencia de cada adaptador) le tiene que corresponder SIEMPRE un
+<bpmn2:serviceTask> en el proceso principal (el "sourceRef" del messageFlow) que
+declare ÉL MISMO, en su propio <bpmn2:extensionElements>, exactamente este bloque
+("activityType": "ExternalCall", ese "cmdVariantUri"). No basta con configurar el
+messageFlow — sin esta pieza en el serviceTask, el paso queda "sin tipo" para el
+editor gráfico real de SAP y para cualquier herramienta que dependa de esta
+información (incluido el esquema visual de esta app), aunque el messageFlow en sí
+esté perfectamente configurado con la versión correcta del adaptador.
+
+Aplica también a un <bpmn2:callActivity> si el paso se representa así en vez de como
+serviceTask — la clave es que el elemento que aparece como "sourceRef"/"targetRef"
+del messageFlow tenga siempre este mismo bloque de extensionElements, además del
+propio messageFlow.
+-->

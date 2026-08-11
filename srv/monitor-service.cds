@@ -192,6 +192,16 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
     Message : String;
   };
 
+  // Consultado en polling desde el frontend tras confirmIflowDesign (el deploy real es
+  // asíncrono en Cloud Integration — este function solo lee el estado actual, no bloquea).
+  // Status: STARTING mientras el runtime artifact todavía no existe o sigue construyéndose;
+  // STARTED si desplegó bien; ERROR si falló (ErrorMessage trae el detalle si el tenant lo da
+  // — para errores tipo "GenerationFailed" suele venir vacío, ver [[fase5-diseno-iflow-status]]).
+  function getDeployStatus( artifactId : String ) returns {
+    Status       : String;
+    ErrorMessage : String;
+  };
+
   // Botón "+" junto a "Paquete" en Diseño de iflow (común a Crear/Actualizar).
   // POST /IntegrationPackages con Id/Name/ShortText (verificado contra el
   // tenant real) — Description/Version/etc. quedan con los valores por

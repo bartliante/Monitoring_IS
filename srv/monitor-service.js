@@ -246,6 +246,22 @@ module.exports = cds.service.impl(async function () {
       const { flowXml, scripts, parameters } = extractRelevantFiles(zipBuffer)
 
       const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters })
+
+      // La IA puede cortar la respuesta a mitad del .iflw si el diseño es grande/complejo
+      // (varios adaptadores + subproceso + scripts) — guardar ese contenido tal cual deja el
+      // iflow con un XML incompleto que ni el editor gráfico de Integration Suite puede abrir
+      // ("Error while loading the details of the integration flow"), sin ningún aviso previo.
+      // Se detecta aquí en vez de dejar que falle silenciosamente más tarde.
+      const truncatedFlow = proposal.files.find(f =>
+        f.path.endsWith('.iflw') && !f.content.includes('</bpmn2:definitions>')
+      )
+      if (truncatedFlow) {
+        return req.reject(500,
+          `La IA ha devuelto una definición de iflow incompleta (probablemente cortada por ` +
+          `tratarse de un diseño grande) — vuelve a pulsar "${mode === 'CREATE' ? 'Crear' : 'Actualizar'} Iflow", ` +
+          `no se ha guardado nada.`)
+      }
+
       const newZip = applyFilesToZip(zipBuffer, proposal.files)
 
       iflowDesignCache.set(`${system}::${artifactId}`, {
@@ -290,6 +306,30 @@ module.exports = cds.service.impl(async function () {
         Message: cached.mode === 'CREATE' ? 'Iflow creado y despliegue iniciado' : 'Iflow actualizado y despliegue iniciado'
       }
     } catch (e) {
+      return req.reject(500, e.message)
+    }
+  })
+
+  this.on('getDeployStatus', async req => {
+    const system = req.headers['x-system-destination']
+    if (!system) return req.reject(400, 'Selecciona un sistema antes de continuar')
+    const { artifactId } = req.data
+    try {
+      const text = await rawGet(system, `/IntegrationRuntimeArtifacts(${odataKey(artifactId)})?$format=json`)
+      const d = JSON.parse(text).d
+      let errorMessage = ''
+      if (d.Status === 'ERROR') {
+        try {
+          const errText = await rawGet(system, `/IntegrationRuntimeArtifacts(${odataKey(artifactId)})/ErrorInformation/$value`)
+          const errObj = JSON.parse(errText)
+          errorMessage = errObj?.message?.messageText || errObj?.parameter?.[0] || ''
+        } catch { /* ErrorInformation no siempre está disponible — el Status ya es lo importante */ }
+      }
+      return { Status: d.Status, ErrorMessage: errorMessage }
+    } catch (e) {
+      // El runtime artifact todavía no existe justo tras lanzar el deploy (se está creando) —
+      // no es un fallo real, hay que seguir haciendo polling.
+      if (e.response?.status === 404) return { Status: 'STARTING', ErrorMessage: '' }
       return req.reject(500, e.message)
     }
   })

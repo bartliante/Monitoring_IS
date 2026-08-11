@@ -1,164 +1,59 @@
-<bpmn2:messageFlow id="MessageFlow_1000" name="SuccessFactors" sourceRef="Participant_999" targetRef="ServiceTask_995">
-            <bpmn2:extensionElements>
-                <ifl:property>
-                    <key>Description</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>pagination</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>ComponentNS</key>
-                    <value>sap</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>resourcePath</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>customQueryOptions</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>Name</key>
-                    <value>SuccessFactors</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>TransportProtocolVersion</key>
-                    <value>1.21.0</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>ComponentSWCVName</key>
-                    <value>external</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>proxyPort</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>receiveTimeOut</key>
-                    <value>1</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>sfsfODataReceiverDataCenterUrl</key>
-                    <value>Other</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>alias</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>contentType</key>
-                    <value>application/atom+xml</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>MessageProtocol</key>
-                    <value>OData V2</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>ComponentSWCVId</key>
-                    <value>1.21.0</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>direction</key>
-                    <value>Receiver</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>ComponentType</key>
-                    <value>SuccessFactors</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>address</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>acceptEncoding</key>
-                    <value>gzip</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>queryOptions</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>proxyType</key>
-                    <value>default</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>paging</key>
-                    <value>snapshot</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>componentVersion</key>
-                    <value>1.21</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>urlSuffixSfOData</key>
-                    <value>/odata/v2</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>proxyHost</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>edmxFilePath</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>enableTLSSessionReuse</key>
-                    <value>true</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>odatapagesize</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>system</key>
-                    <value>Content Enricher 1</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>authenticationMethod</key>
-                    <value>Basic</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>retryOnFailure</key>
-                    <value>1</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>whitelistResponseHeaders</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>enableBatchProcessing</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>TransportProtocol</key>
-                    <value>HTTP</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>cmdVariantUri</key>
-                    <value>ctype::AdapterVariant/cname::sap:SuccessFactors/tp::HTTP/mp::OData V2/direction::Receiver/version::1.21.1</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>fields</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>characterEncoding</key>
-                    <value>none</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>whitelistRequestHeaders</key>
-                    <value/>
-                </ifl:property>
-                <ifl:property>
-                    <key>operation</key>
-                    <value>Query(GET)</value>
-                </ifl:property>
-                <ifl:property>
-                    <key>MessageProtocolVersion</key>
-                    <value>1.21.0</value>
-                </ifl:property>
-            </bpmn2:extensionElements>
-        </bpmn2:messageFlow>
+<bpmn2:messageFlow id="MessageFlow_1133" name="SuccessFactors" sourceRef="ServiceTask_1129" targetRef="Participant_1132">
+    <bpmn2:extensionElements>
+        <ifl:property><key>Description</key><value/></ifl:property>
+        <ifl:property><key>pagination</key><value/></ifl:property>
+        <ifl:property><key>ComponentNS</key><value>sap</value></ifl:property>
+        <ifl:property><key>resourcePath</key><value/></ifl:property>
+        <ifl:property><key>customQueryOptions</key><value/></ifl:property>
+        <ifl:property><key>Name</key><value>SuccessFactors</value></ifl:property>
+        <ifl:property><key>TransportProtocolVersion</key><value>1.21.0</value></ifl:property>
+        <ifl:property><key>ComponentSWCVName</key><value>external</value></ifl:property>
+        <ifl:property><key>proxyPort</key><value/></ifl:property>
+        <ifl:property><key>receiveTimeOut</key><value>1</value></ifl:property>
+        <ifl:property><key>sfsfODataReceiverDataCenterUrl</key><value>Other</value></ifl:property>
+        <ifl:property><key>alias</key><value/></ifl:property>
+        <ifl:property><key>contentType</key><value>application/atom+xml</value></ifl:property>
+        <ifl:property><key>MessageProtocol</key><value>OData V2</value></ifl:property>
+        <ifl:property><key>ComponentSWCVId</key><value>1.21.0</value></ifl:property>
+        <ifl:property><key>direction</key><value>Receiver</value></ifl:property>
+        <ifl:property><key>ComponentType</key><value>SuccessFactors</value></ifl:property>
+        <ifl:property><key>address</key><value/></ifl:property>
+        <ifl:property><key>acceptEncoding</key><value>gzip</value></ifl:property>
+        <ifl:property><key>queryOptions</key><value/></ifl:property>
+        <ifl:property><key>proxyType</key><value>default</value></ifl:property>
+        <ifl:property><key>paging</key><value>snapshot</value></ifl:property>
+        <ifl:property><key>componentVersion</key><value>1.21</value></ifl:property>
+        <ifl:property><key>urlSuffixSfOData</key><value>/odata/v2</value></ifl:property>
+        <ifl:property><key>proxyHost</key><value/></ifl:property>
+        <ifl:property><key>edmxFilePath</key><value/></ifl:property>
+        <ifl:property><key>enableTLSSessionReuse</key><value>true</value></ifl:property>
+        <ifl:property><key>odatapagesize</key><value/></ifl:property>
+        <ifl:property><key>system</key><value>Receiver9</value></ifl:property>
+        <ifl:property><key>authenticationMethod</key><value>Basic</value></ifl:property>
+        <ifl:property><key>retryOnFailure</key><value>1</value></ifl:property>
+        <ifl:property><key>whitelistResponseHeaders</key><value/></ifl:property>
+        <ifl:property><key>enableBatchProcessing</key><value/></ifl:property>
+        <ifl:property><key>TransportProtocol</key><value>HTTP</value></ifl:property>
+        <ifl:property><key>cmdVariantUri</key><value>ctype::AdapterVariant/cname::sap:SuccessFactors/tp::HTTP/mp::OData V2/direction::Receiver/version::1.21.1</value></ifl:property>
+        <ifl:property><key>fields</key><value/></ifl:property>
+        <ifl:property><key>characterEncoding</key><value>none</value></ifl:property>
+        <ifl:property><key>whitelistRequestHeaders</key><value/></ifl:property>
+        <ifl:property><key>operation</key><value>Query(GET)</value></ifl:property>
+        <ifl:property><key>MessageProtocolVersion</key><value>1.21.0</value></ifl:property>
+    </bpmn2:extensionElements>
+</bpmn2:messageFlow>
+
+<!--
+IMPORTANTE — corregido el 2026-08-11: la versión anterior de este componente tenía
+"sourceRef"/"targetRef" INVERTIDOS (Participant→ServiceTask en vez de ServiceTask→Participant,
+al revés que TODOS los demás adaptadores Receiver de esta librería). Se sospecha que esa
+dirección invertida era la causa (o una de las causas) de que un iflow real que la copiaba
+fallara en el despliegue con "GenerationFailed" pese a tener el "cmdVariantUri"/versión
+correctos y el step ExternalCall bien declarado — visto en un caso real. Respeta SIEMPRE el
+mismo orden: "sourceRef" es el ServiceTask/callActivity que hace la llamada, "targetRef" es el
+Participant receptor — igual que en http-receiver.xml, soap-receiver.xml, etc.
+
+Recuerda además la pareja obligatoria del componente "ServiceTask ExternalCall" (ver ese
+componente de referencia): el ServiceTask/callActivity que sea "sourceRef" de este messageFlow
+necesita TAMBIÉN su propio bloque de extensionElements con activityType=ExternalCall.
+-->

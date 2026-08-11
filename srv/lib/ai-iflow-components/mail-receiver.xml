@@ -182,3 +182,14 @@
                 </ifl:property>
             </bpmn2:extensionElements>
         </bpmn2:messageFlow>
+
+<!--
+IMPORTANTE: a diferencia de los adaptadores de petición-respuesta (HTTP, OData, SuccessFactors,
+SOAP, JDBC...), el adaptador Mail es "fire-and-forget" — no espera ninguna respuesta del
+servidor SMTP. El ServiceTask/callActivity que sea "sourceRef" de este messageFlow NO debe
+llevar el bloque "ServiceTask ExternalCall" (activityType=ExternalCall) que usan los demás
+adaptadores — debe usar en su lugar el componente de referencia "Send"
+(activityType=Send, cmdVariantUri ctype::FlowstepVariant/cname::Send/version::1.0.4). Usar
+ExternalCall aquí es incorrecto (aunque no llegue a bloquear el build) porque modela el envío
+como una llamada de petición-respuesta que en realidad nunca ocurre.
+-->

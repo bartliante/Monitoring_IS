@@ -120,6 +120,14 @@
       />
       <Text text="{i18n>busyDesigning}" visible="{iflowDesign>/busy}" class="sapUiSmallMarginBottom"/>
 
+      <MessageStrip
+        text="{iflowDesign>/deployStatus/text}"
+        type="{iflowDesign>/deployStatus/type}"
+        showIcon="true"
+        visible="{iflowDesign>/deployStatus/visible}"
+        class="sapUiSmallMarginBottom"
+      />
+
       <VBox visible="{= !!${iflowDesign>/proposal} }" class="sapUiMediumMarginTop">
         <Toolbar class="sapUiSmallMarginBottom">
           <Title text="{i18n>proposalTitle}" level="H3"/>

@@ -71,6 +71,21 @@ address/credenciales/valores de negocio a tu caso), en vez de inventar una versi
 van siempre juntas — el elemento "process" del subproceso (sibling de tu proceso principal, con su propio \
 id) y el elemento "callActivity" que lo invoca (con "processId" apuntando exactamente a ese id) — copia \
 ambas piezas o ninguna, nunca solo una.
+- CRÍTICO — visto causando "Error while loading the details of the integration flow" al abrir un iflow real \
+en Integration Suite (el editor no puede ni cargarlo): cada vez que conectes un adaptador (el \
+"messageFlow" de un componente de referencia) a un paso del proceso principal, ese paso (el \
+"serviceTask"/"callActivity" que sea el "sourceRef"/"targetRef" del messageFlow) DEBE llevar TAMBIÉN, en su \
+propio "extensionElements", el bloque del componente de referencia "ServiceTask ExternalCall" \
+("activityType": "ExternalCall", ese "cmdVariantUri") — EXCEPTO el adaptador Mail (ver más abajo), que usa \
+un bloque distinto. Configurar solo el messageFlow SIN esta pieza deja el paso "sin tipo" — parece \
+sintácticamente válido pero rompe el editor gráfico real y el esquema visual de esta misma app. Añade \
+SIEMPRE ambas piezas juntas (el messageFlow del adaptador Y este bloque en el paso que lo usa), nunca solo \
+una.
+- El adaptador Mail es la ÚNICA excepción a la regla anterior: es "fire-and-forget" (no espera respuesta \
+del servidor SMTP), así que el paso que lo usa NO lleva el bloque "ServiceTask ExternalCall" — lleva en su \
+lugar el bloque del componente de referencia "Send" ("activityType": "Send", cmdVariantUri \
+"ctype::FlowstepVariant/cname::Send/version::1.0.4"). Usar ExternalCall con Mail modela el envío como una \
+petición-respuesta que en realidad nunca ocurre — evítalo aunque no llegue a bloquear el build.
 - Para cualquier adaptador/canal real que NECESITES pero para el que NO se te haya dado un componente de \
 referencia arriba: NO lo inventes. Implementa un paso "Content Modifier" + un script Groovy nuevo (bajo \
 src/main/resources/script/) que simule/registre esa llamada (p. ej. deja un comentario TODO y un log con lo \
@@ -88,6 +103,19 @@ normal en su lugar (más seguro, salvo que el .iflw ya tenga un Timer configurad
 otra cosa).
 - Cada canal debe tener un "Name" ÚNICO dentro del flujo — nunca repitas el mismo nombre de canal en dos \
 sitios distintos, aunque sean del mismo sistema.
+- CRÍTICO — visto causando "Error while loading the details of the integration flow" al abrir un iflow real \
+en Integration Suite (el editor no puede ni cargarlo), en un caso donde el iflow SÍ compilaba/desplegaba: \
+cada elemento del proceso (startEvent, endEvent, serviceTask, callActivity, subProcess...) que añadas o \
+edites en la sección "bpmn2:process" (o dentro de un "bpmn2:subProcess") necesita TAMBIÉN su propio \
+"bpmndi:BPMNShape" (con "dc:Bounds") en la sección "bpmndi:BPMNDiagram" al final del fichero, y cada \
+"sequenceFlow"/"messageFlow" que conecte necesita su propio "bpmndi:BPMNEdge" (con dos "di:waypoint", \
+"xsi:type=\"dc:Point\"") — visto fallando específicamente en un "Exception Subprocess": se añadió el \
+"BPMNShape" del subProcess contenedor pero NUNCA los de sus elementos internos (el startEvent/callActivity/ \
+serviceTask/endEvent DE DENTRO del subproceso), dejando el diagrama incompleto — el iflow compilaba bien \
+pero el editor gráfico no podía cargarlo. Si añades un subProcess con pasos dentro, no olvides el \
+BPMNShape de CADA UNO de esos pasos internos, no solo el del subProcess en sí. Coloca los nuevos \
+BPMNShape dentro de los límites (dc:Bounds) del elemento contenedor si es un subProcess, y los BPMNEdge \
+con waypoints que conecten el centro aproximado de un shape con el del siguiente.
 - Si usas algún valor de ejemplo/placeholder que el usuario deba revisar antes de un uso real \
 (credenciales, URLs, la llamada simulada al sistema externo, planificación del Timer, etc.), enuméralos en \
 "warnings" para que sepa qué configurar.`

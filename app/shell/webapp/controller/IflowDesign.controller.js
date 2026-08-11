@@ -31,7 +31,10 @@ sap.ui.define([
       documentName: "",
       busy: false,
       proposal: null,
-      diagramSvg: ""
+      diagramSvg: "",
+      // Estado del despliegue tras confirmar — se actualiza solo vía polling (ver
+      // _pollDeployStatus), sin bloquear el resto de la app mientras tanto.
+      deployStatus: { visible: false, type: "Information", text: "" }
     };
   }
 
@@ -52,6 +55,7 @@ sap.ui.define([
 
     onExit: function () {
       sap.ui.getCore().getEventBus().unsubscribe(EVENT_CHANNEL, EVENT_SYSTEM_CHANGED, this._onSystemChangedExternally, this);
+      if (this._iDeployPollTimeout) clearTimeout(this._iDeployPollTimeout);
     },
 
     // Shell.controller.js publishes this when the system changes from the shared
@@ -335,9 +339,11 @@ sap.ui.define([
       }
 
       this._applySystemHeader();
+      if (this._iDeployPollTimeout) clearTimeout(this._iDeployPollTimeout);
       oModel.setProperty("/busy", true);
       oModel.setProperty("/proposal", null);
       oModel.setProperty("/diagramSvg", "");
+      oModel.setProperty("/deployStatus", { visible: false, type: "Information", text: "" });
 
       const oOperation = this.getView().getModel().bindContext("/designIflow(...)");
       oOperation.setParameter("mode", sMode);
@@ -385,6 +391,7 @@ sap.ui.define([
             MessageToast.show(oResourceBundle.getText("iflowDesignConfirmed", [oResult.TaskId]));
             oModel.setProperty("/proposal", null);
             oModel.setProperty("/diagramSvg", "");
+            this._pollDeployStatus(sArtifactId, 0);
           } else {
             MessageBox.error(oResult.Message || oResourceBundle.getText("designError"));
           }
@@ -392,6 +399,69 @@ sap.ui.define([
         .catch(oError => {
           oModel.setProperty("/busy", false);
           MessageBox.error(oError.message || oResourceBundle.getText("designError"));
+        });
+    },
+
+    // El deploy real en Cloud Integration es asíncrono — en vez de bloquear la app
+    // esperando, se lanza este polling en background (cada 6s, hasta 20 intentos ≈ 2 min) y
+    // se actualiza un MessageStrip propio cuando el estado deja de ser STARTING. El usuario
+    // puede seguir usando el resto de la app mientras tanto; si navega fuera de esta vista
+    // antes de que termine, el aviso se pierde (tendría que volver a "Actualizar" ese iflow
+    // para comprobar el estado) — contrapartida aceptada frente a bloquear la UI.
+    _pollDeployStatus: function (sArtifactId, iAttempt) {
+      const oResourceBundle = this._resourceBundle();
+      const oModel = this.getView().getModel("iflowDesign");
+      const MAX_ATTEMPTS = 20;
+      const POLL_INTERVAL_MS = 6000;
+
+      oModel.setProperty("/deployStatus", {
+        visible: true,
+        type: "Information",
+        text: oResourceBundle.getText("deployStatusPolling", [sArtifactId])
+      });
+
+      this._callFunction("getDeployStatus", { artifactId: sArtifactId })
+        .then(oResult => {
+          if (oResult.Status === "STARTED") {
+            oModel.setProperty("/deployStatus", {
+              visible: true,
+              type: "Success",
+              text: oResourceBundle.getText("deployStatusStarted", [sArtifactId])
+            });
+            return;
+          }
+          if (oResult.Status === "ERROR") {
+            const sDetail = oResult.ErrorMessage || oResourceBundle.getText("deployStatusErrorNoDetail");
+            oModel.setProperty("/deployStatus", {
+              visible: true,
+              type: "Error",
+              text: oResourceBundle.getText("deployStatusError", [sArtifactId, sDetail])
+            });
+            return;
+          }
+          // Sigue STARTING (o cualquier otro estado transitorio) — reintenta si queda margen.
+          if (iAttempt + 1 >= MAX_ATTEMPTS) {
+            oModel.setProperty("/deployStatus", {
+              visible: true,
+              type: "Warning",
+              text: oResourceBundle.getText("deployStatusTimeout", [sArtifactId])
+            });
+            return;
+          }
+          this._iDeployPollTimeout = setTimeout(() => this._pollDeployStatus(sArtifactId, iAttempt + 1), POLL_INTERVAL_MS);
+        })
+        .catch(oError => {
+          // Un fallo puntual de red al consultar el estado no debe cortar el polling —
+          // reintenta igual que si siguiera en STARTING, hasta agotar los intentos.
+          if (iAttempt + 1 >= MAX_ATTEMPTS) {
+            oModel.setProperty("/deployStatus", {
+              visible: true,
+              type: "Warning",
+              text: oError.message || oResourceBundle.getText("deployStatusTimeout", [sArtifactId])
+            });
+            return;
+          }
+          this._iDeployPollTimeout = setTimeout(() => this._pollDeployStatus(sArtifactId, iAttempt + 1), POLL_INTERVAL_MS);
         });
     },
 
