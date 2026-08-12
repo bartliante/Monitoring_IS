@@ -87,7 +87,7 @@
         >
           <RadioButton text="{i18n>aiInputPrompt}"/>
           <RadioButton text="{i18n>aiInputDocument}"/>
-          <RadioButton text="{i18n>aiInputTemplate}" enabled="false"/>
+          <RadioButton text="{i18n>aiInputTemplate}"/>
         </RadioButtonGroup>
 
         <Label text="{i18n>promptLabel}" visible="{= ${iflowDesign>/aiInputMode} === 'PROMPT' }"/>
@@ -106,6 +106,22 @@
           change=".onDocumentSelected"
           width="100%"
           visible="{= ${iflowDesign>/aiInputMode} === 'DOCUMENT' }"
+        />
+
+        <Label text="{i18n>designTemplateLabel}" visible="{= ${iflowDesign>/aiInputMode} === 'TEMPLATE' }"/>
+        <Button
+          text="{i18n>downloadTemplateButton}"
+          icon="sap-icon://download"
+          press=".onDownloadTemplate"
+          visible="{= ${iflowDesign>/aiInputMode} === 'TEMPLATE' }"
+          class="sapUiTinyMarginBottom"
+        />
+        <u:FileUploader
+          id="designTemplateUploader"
+          fileType="xlsx"
+          change=".onDocumentSelected"
+          width="100%"
+          visible="{= ${iflowDesign>/aiInputMode} === 'TEMPLATE' }"
         />
 
       </f:SimpleForm>

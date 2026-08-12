@@ -151,7 +151,7 @@ service MonitorService @(path: '/monitor', requires: 'Monitor') {
   };
 
   type IflowMode : String enum { CREATE; UPDATE; }
-  type AiInputMode : String enum { PROMPT; DOCUMENT; }
+  type AiInputMode : String enum { PROMPT; DOCUMENT; TEMPLATE; }
 
   type IflowDesignProposal : {
     Summary  : String;

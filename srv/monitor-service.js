@@ -11,6 +11,7 @@ const {
 const { diagnoseAndFix } = require('./lib/ai-fix')
 const { designIflow: designIflowWithAi } = require('./lib/ai-iflow')
 const { extractText } = require('./lib/document-text')
+const { parseTemplate } = require('./lib/template-parser')
 const { createTtlCache } = require('./lib/ttl-cache')
 
 // Holds, between the "propose" and "confirm" steps of each two-step AI flow,
@@ -234,18 +235,24 @@ module.exports = cds.service.impl(async function () {
     }
     try {
       let requirements = prompt
+      let componentIds = null
       if (aiInputMode === 'DOCUMENT') {
         if (!designDocument) return req.reject(400, 'Adjunta un diseño técnico')
         requirements = await extractText(Buffer.from(designDocument, 'base64'), designDocumentName)
+      } else if (aiInputMode === 'TEMPLATE') {
+        if (!designDocument) return req.reject(400, 'Adjunta la plantilla Excel')
+        const parsed = await parseTemplate(Buffer.from(designDocument, 'base64'))
+        requirements = parsed.requirements
+        componentIds = parsed.componentIds
       }
-      if (!requirements) return req.reject(400, 'Especifica un prompt o adjunta un diseño técnico')
+      if (!requirements) return req.reject(400, 'Especifica un prompt, adjunta un diseño técnico o una plantilla')
 
       const zipBuffer = mode === 'CREATE'
         ? buildIflowFromTemplate({ id: artifactId, name: artifactName, description, sender, receiver })
         : await downloadIflowZip(system, artifactId)
       const { flowXml, scripts, parameters } = extractRelevantFiles(zipBuffer)
 
-      const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters })
+      const proposal = await designIflowWithAi({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters, componentIds })
 
       // La IA puede cortar la respuesta a mitad del .iflw si el diseño es grande/complejo
       // (varios adaptadores + subproceso + scripts) — guardar ese contenido tal cual deja el

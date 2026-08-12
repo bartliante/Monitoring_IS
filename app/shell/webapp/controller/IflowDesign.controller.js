@@ -289,6 +289,22 @@ sap.ui.define([
       const oModel = this.getView().getModel("iflowDesign");
       oModel.setProperty("/aiInputMode", sMode);
       oModel.setProperty("/aiInputModeIndex", iIndex);
+      // DOCUMENT y TEMPLATE comparten /documentBase64 (dos FileUploader distintos, mismo
+      // modelo) — sin esto, cambiar de modo sin volver a adjuntar reenviaría el fichero
+      // anterior (p. ej. un PDF) como si fuera del tipo nuevo. Se limpia también el propio
+      // control para que no siga mostrando el nombre del fichero anterior.
+      oModel.setProperty("/documentBase64", "");
+      oModel.setProperty("/documentName", "");
+      const oDocUploader = this.byId("designDocumentUploader");
+      const oTemplateUploader = this.byId("designTemplateUploader");
+      if (oDocUploader) oDocUploader.clear();
+      if (oTemplateUploader) oTemplateUploader.clear();
+    },
+
+    onDownloadTemplate: function () {
+      // Ruta servida directamente por server.js (fuera del mount OData /monitor) con
+      // Content-Disposition: attachment — un simple window.open ya dispara la descarga.
+      window.open("/templates/plantilla-diseno-iflow.xlsx", "_blank");
     },
 
     onDocumentSelected: function (oEvent) {
@@ -333,7 +349,7 @@ sap.ui.define([
         MessageBox.error(oResourceBundle.getText("missingRequirements"));
         return;
       }
-      if (sAiInputMode === "DOCUMENT" && !oModel.getProperty("/documentBase64")) {
+      if ((sAiInputMode === "DOCUMENT" || sAiInputMode === "TEMPLATE") && !oModel.getProperty("/documentBase64")) {
         MessageBox.error(oResourceBundle.getText("missingRequirements"));
         return;
       }

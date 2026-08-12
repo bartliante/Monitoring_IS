@@ -154,4 +154,17 @@ function selectRelevantComponents(text) {
     .map(c => ({ id: c.id, label: c.label, xml: readSnippet(c.file), caveat: c.caveat }))
 }
 
-module.exports = { selectRelevantComponents }
+// Same output shape as selectRelevantComponents, but selects by an exact set of component
+// ids instead of matching keywords against free text — used for "Diseño de iflow" > Crear a
+// través de una plantilla, where the Excel template's "Tipo de componente" column already IS
+// the id (picked from a validated dropdown), so there's no ambiguity left to resolve with a
+// regex. Always-relevant components (keywords: /.*/) are included regardless, same as the
+// text-based path.
+function selectComponentsByIds(ids) {
+  const idSet = new Set(ids || [])
+  return COMPONENTS
+    .filter(c => idSet.has(c.id) || c.keywords.test(''))
+    .map(c => ({ id: c.id, label: c.label, xml: readSnippet(c.file), caveat: c.caveat }))
+}
+
+module.exports = { selectRelevantComponents, selectComponentsByIds, COMPONENTS }

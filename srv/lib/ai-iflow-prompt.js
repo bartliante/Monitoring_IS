@@ -6,7 +6,7 @@
 // adds — since building/extending a flow is rarely a single-file change.
 
 const { serializeFiles } = require('./ai-fix-prompt')
-const { selectRelevantComponents } = require('./ai-iflow-components')
+const { selectRelevantComponents, selectComponentsByIds } = require('./ai-iflow-components')
 
 const IFLOW_DESIGN_SCHEMA = {
   type: 'object',
@@ -148,7 +148,15 @@ function serializeComponents(components) {
     }).join('\n\n')
 }
 
-function buildUserContent({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters }) {
+function buildUserContent({ mode, artifactName, description, sender, receiver, requirements, flowXml, scripts, parameters, componentIds }) {
+  // "Adjuntando una plantilla" ya da el id exacto de cada componente (una columna con
+  // desplegable validado, no texto libre) — seleccionar por id evita depender de que las
+  // regex de palabras clave (pensadas para prompts en lenguaje natural) reconozcan bien un
+  // id técnico con guiones. Prompt/diseño técnico siguen usando el matching por texto.
+  const components = componentIds && componentIds.length
+    ? selectComponentsByIds(componentIds)
+    : selectRelevantComponents(requirements)
+
   return `## Iflow
 Nombre: ${artifactName}
 Descripción: ${description || '(sin descripción)'}
@@ -168,7 +176,7 @@ ${serializeFiles('scripts', scripts)}
 Si necesitas añadir uno nuevo (p. ej. el del Timer), conserva TODO lo que ya haya aquí y añade solo tus \
 líneas nuevas — nunca sobrescribas estos ficheros vacíos ni elimines entradas existentes sin relación con \
 tu cambio.
-${serializeFiles('parámetros', parameters || [])}${serializeComponents(selectRelevantComponents(requirements))}`
+${serializeFiles('parámetros', parameters || [])}${serializeComponents(components)}`
 }
 
 module.exports = {
