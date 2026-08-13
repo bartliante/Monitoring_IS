@@ -17,6 +17,19 @@ const TAG = 'IntegrationSuiteMonitor'
 // CargaEmpleados sibling does for its own destination service integration.
 const hasRealDestinationService = () => !!cds.env.requires?.destinations?.credentials
 
+// Just requiring @sap/cds already parses default-env.json and copies its top-level
+// "destinations" key onto process.env.destinations (a Cloud SDK/BAS convention, see
+// resolveLocalCredentials below) — regardless of whether a real destination service is
+// bound. @sap-cloud-sdk/connectivity's destination lookup checks that env var BEFORE
+// calling the real BTP Destination service, so a locally-stored entry with the same
+// Name as a real one (e.g. both called "trial") silently wins and gets used for auth —
+// verified against a real tenant: the real call failed with "no auth tokens could be
+// fetched from the destination service" because the env-var entry has no real token,
+// only the fake/demo credentials typed into default-env.json for local testing. Once a
+// real destination service is bound, that env var must never be consulted at all, so it
+// gets cleared here, once, before any remote call can happen.
+if (hasRealDestinationService()) delete process.env.destinations
+
 // Network-level failures (DNS, connection refused, timeout...) make the global
 // `fetch` reject with a TypeError whose message is just "fetch failed" — and,
 // unlike an HTTP error response, that rejection isn't something CDS's request

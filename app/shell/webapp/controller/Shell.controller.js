@@ -36,27 +36,38 @@ sap.ui.define([
       this.getView().getModel("shellView").setProperty("/menuKey", sKey);
     },
 
+    // Restaura el sistema guardado en sessionStorage si sigue existiendo en /Systems: si no
+    // hay ninguno guardado (primera visita, sessionStorage limpio) o el guardado ya no está en
+    // la lista (p. ej. tras pasar de destinations locales a las reales de BTP, con otro
+    // nombre), selecciona el primero disponible. Necesario porque systemSelect (sap.m.Select)
+    // tiene forceSelection por defecto: auto-selecciona visualmente el primer item en cuanto
+    // llegan los datos, pero esa auto-selección nunca dispara "change" — sin este fallback el
+    // desplegable parece tener un sistema elegido pero onSystemChange nunca llega a fijar el
+    // header/sessionStorage reales (mismo patrón ya visto y arreglado para los Select de
+    // Paquete/Iflow en IflowDesign.controller.js).
     _restoreSystemSelection: function () {
-      const sStoredSystem = window.sessionStorage.getItem(SYSTEM_STORAGE_KEY);
-      if (!sStoredSystem) return;
-
-      const oModel = this.getView().getModel();
-      oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sStoredSystem });
-
       const oSelect = this.byId("systemSelect");
       const oItemsBinding = oSelect.getBinding("items");
-      if (oItemsBinding && oItemsBinding.getContexts().length) {
-        oSelect.setSelectedKey(sStoredSystem);
-      } else if (oItemsBinding) {
-        oItemsBinding.attachEventOnce("dataReceived", () => oSelect.setSelectedKey(sStoredSystem));
+      const sStoredSystem = window.sessionStorage.getItem(SYSTEM_STORAGE_KEY);
+
+      const applyWhenReady = () => {
+        const aContexts = oItemsBinding.getContexts();
+        if (!aContexts.length) return;
+        const sSystem = aContexts.some(oContext => oContext.getProperty("Name") === sStoredSystem)
+          ? sStoredSystem
+          : aContexts[0].getProperty("Name");
+        oSelect.setSelectedKey(sSystem);
+        this._applySystem(sSystem);
+      };
+
+      if (oItemsBinding.getContexts().length) {
+        applyWhenReady();
+      } else {
+        oItemsBinding.attachEventOnce("dataReceived", applyWhenReady);
       }
     },
 
-    onSystemChange: function (oEvent) {
-      const sSystem = oEvent.getParameter("selectedItem")
-        ? oEvent.getParameter("selectedItem").getKey()
-        : oEvent.getSource().getSelectedKey();
-
+    _applySystem: function (sSystem) {
       this.getView().getModel().changeHttpHeaders({ [SYSTEM_HEADER]: sSystem });
       window.sessionStorage.setItem(SYSTEM_STORAGE_KEY, sSystem);
 
@@ -64,6 +75,14 @@ sap.ui.define([
       // instancia de modelo OData: no comparte el changeHttpHeaders de arriba,
       // así que se le avisa por EventBus para que aplique el mismo header en caliente.
       sap.ui.getCore().getEventBus().publish(EVENT_CHANNEL, EVENT_SYSTEM_CHANGED, { system: sSystem });
+    },
+
+    onSystemChange: function (oEvent) {
+      const sSystem = oEvent.getParameter("selectedItem")
+        ? oEvent.getParameter("selectedItem").getKey()
+        : oEvent.getSource().getSelectedKey();
+
+      this._applySystem(sSystem);
     },
 
     onNewConnection: function () {

@@ -50,10 +50,7 @@ sap.ui.define([
       oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sStoredSystem });
     },
 
-    _onSystemChangedExternally: function (sChannel, sEvent, oData) {
-      const oModel = this.getView().getModel();
-      if (!oModel) return;
-      oModel.changeHttpHeaders({ [SYSTEM_HEADER]: oData.system });
+    _onSystemChangedExternally: function () {
       this._refresh();
     },
 
@@ -61,7 +58,20 @@ sap.ui.define([
       this._refresh();
     },
 
+    // Re-reads sessionStorage and (re)applies the header on every refresh, right before
+    // rebind() — instead of only relying on _restoreSystemSelection (onInit) and the
+    // systemChanged event to have already set it on this component's model at some earlier
+    // point. Verified against a real tenant that relying on those alone isn't reliable here:
+    // the header was still missing from the actual $batch sub-request even after the shell's
+    // dropdown clearly showed the right system selected and the user manually pressed "Ir" —
+    // some FPM/routing timing gap between this nested component's model and the shell's event
+    // was dropping it silently. Re-applying synchronously at the one moment that actually
+    // matters (right before the request is built) sidesteps that regardless of its cause.
     _refresh: function () {
+      const sSystem = window.sessionStorage.getItem(SYSTEM_STORAGE_KEY);
+      const oModel = this.getView().getModel();
+      if (sSystem && oModel) oModel.changeHttpHeaders({ [SYSTEM_HEADER]: sSystem });
+
       // oTable.getRowBinding().refresh() reaches past the mdc/FE Table's own
       // binding lifecycle and leaves it in an inconsistent state (throws deep
       // inside sap/fe/macros on the next interaction). rebind() is the
