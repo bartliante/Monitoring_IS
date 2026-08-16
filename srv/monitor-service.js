@@ -5,7 +5,9 @@ const destinationsAdmin = require('./lib/destinations-admin')
 const { getRemoteFor, invalidate, rawGet, rawRequest, odataKey } = require('./lib/remote-connect')
 const { translateMessageProcessingLogsQuery, criticalityForStatus } = require('./lib/query-translate')
 const {
-  downloadIflowZip, extractRelevantFiles, applyFixToZip, applyFilesToZip, buildIflowFromTemplate,
+  downloadIflowZip, extractRelevantFiles, applyFixToZip, applyFilesToZip, repairMissingDiagramEdges,
+  repairMissingAdapterNames, repairMissingMailServer, repairIncompleteAdapterProperties,
+  repairParticipantNameWhitespace, repairDuplicateChannelNames, buildIflowFromTemplate,
   uploadIflowZip, createIflowZip, deployArtifact
 } = require('./lib/iflow-content')
 const { diagnoseAndFix } = require('./lib/ai-fix')
@@ -268,6 +270,22 @@ module.exports = cds.service.impl(async function () {
           `tratarse de un diseño grande) — vuelve a pulsar "${mode === 'CREATE' ? 'Crear' : 'Actualizar'} Iflow", ` +
           `no se ha guardado nada.`)
       }
+
+      // La IA conecta bien el modelo BPMN2 logico (sourceRef/targetRef correctos en cada
+      // sequenceFlow/messageFlow) pero en disenos grandes se deja sin BPMNEdge la mayoria de
+      // los sequenceFlow entre pasos (verificado: un diseno de 41 sequenceFlow solo llevaba 1
+      // con linea) — el build no se queja (el diagrama es cosmetico) pero el editor grafico
+      // muestra los pasos sueltos, sin flechas que los unan. Se repara aqui, no se deja pasar.
+      proposal.files = proposal.files.map(f => {
+        if (!f.path.endsWith('.iflw')) return f
+        let content = repairMissingDiagramEdges(f.content)
+        content = repairIncompleteAdapterProperties(content) // red general: copia de la referencia real
+        content = repairDuplicateChannelNames(content) // antes de repairMissingAdapterNames: que el fallback use el nombre ya deduplicado
+        content = repairMissingAdapterNames(content) // fallback si la referencia no cubria el cname
+        content = repairMissingMailServer(content) // fallback: la referencia de Mail trae "server" vacio
+        content = repairParticipantNameWhitespace(content)
+        return { ...f, content }
+      })
 
       const newZip = applyFilesToZip(zipBuffer, proposal.files)
 

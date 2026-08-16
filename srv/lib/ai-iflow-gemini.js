@@ -8,7 +8,9 @@ const { GoogleGenAI } = require('@google/genai')
 const { IFLOW_DESIGN_SCHEMA, SYSTEM_PROMPT_CREATE, SYSTEM_PROMPT_UPDATE, buildUserContent } = require('./ai-iflow-prompt')
 
 const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-const MODEL = 'gemini-flash-latest'
+// PRUEBA TEMPORAL (2026-08-16): fijado a 'gemini-3.6-flash', ver el mismo comentario en
+// ai-fix-gemini.js - revertir a 'gemini-flash-latest' cuando el usuario lo pida.
+const MODEL = 'gemini-3.6-flash'
 
 async function designIflow(context) {
   const systemInstruction = context.mode === 'CREATE' ? SYSTEM_PROMPT_CREATE : SYSTEM_PROMPT_UPDATE

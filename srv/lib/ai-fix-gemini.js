@@ -13,11 +13,12 @@ const { SUGGESTION_SCHEMA, SYSTEM_PROMPT, buildUserContent } = require('./ai-fix
 
 const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-// The "-latest" alias (rather than a dated model like 'gemini-2.5-flash',
-// which broke with "no longer available to new users" days after being
-// wired in) keeps pointing at whatever Flash-class model Google currently
-// recommends, sparing this from repeated model-deprecation breakage.
-const MODEL = 'gemini-flash-latest'
+// PRUEBA TEMPORAL (2026-08-16): fijado a 'gemini-3.6-flash' para comprobar si los 503
+// constantes de los ultimos dias son cosa del alias "-latest" (en transicion a 3.7 Flash) -
+// revertir a 'gemini-flash-latest' cuando el usuario lo pida. Motivo original del alias (no
+// fijar una version dateada): 'gemini-2.5-flash' se rompio con "no longer available to new
+// users" dias despues de fijarlo - ese riesgo vuelve a aplicar mientras dure esta prueba.
+const MODEL = 'gemini-3.6-flash'
 
 async function diagnoseAndFix(context) {
   const response = await client.models.generateContent({
