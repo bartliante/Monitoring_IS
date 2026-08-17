@@ -7,6 +7,7 @@
 const fs = require('fs')
 const path = require('path')
 const AdmZip = require('adm-zip')
+const { SaxesParser } = require('saxes')
 const { rawRequest, odataKey } = require('./remote-connect')
 
 // Seed ZIP for "Diseño de iflow" > Crear: a minimal iflow with no steps,
@@ -49,20 +50,35 @@ function extractRelevantFiles(zipBuffer) {
   const parameters = []
   let totalBytes = 0
 
-  for (const entry of zip.getEntries()) {
-    if (entry.isDirectory) continue
+  // El .iflw se procesa SIEMPRE primero e ignora el tope de tamaño — verificado con un diseno
+  // real ("completo", ya en 113-118KB solo el .iflw) que el orden de entrada del ZIP no
+  // garantiza que el .iflw se recorra antes que los scripts/parametros: si estos se procesaban
+  // antes y agotaban el presupuesto de MAX_TOTAL_BYTES, el .iflw se descartaba SILENCIOSAMENTE
+  // (ni error ni aviso), dejando flowXml vacio — usado tanto para el contexto que ve la IA en
+  // "Actualizar" como para el diagrama que pinta la propia app, asi que su ausencia se notaba
+  // como "no aparece el grafico del iflow en la aplicacion" sin ninguna pista de por que. El
+  // .iflw es un unico fichero y el mas importante de los tres grupos — nunca debe ser el que se
+  // sacrifique por el tope pensado para acotar cuantos scripts/parametros se envian a la IA.
+  const entries = zip.getEntries()
+  const flowEntry = entries.find(e => !e.isDirectory && /\.iflw$/.test(e.entryName) && RELEVANT_PATH_PATTERNS[0].test(e.entryName))
+  if (flowEntry) {
+    const content = flowEntry.getData().toString('utf8')
+    flowXml.push({ path: flowEntry.entryName, content })
+    totalBytes += content.length
+  }
+
+  for (const entry of entries) {
+    if (entry.isDirectory || entry === flowEntry) continue
     const path = entry.entryName
-    const isFlow = /\.iflw$/.test(path) && RELEVANT_PATH_PATTERNS[0].test(path)
     const isScript = RELEVANT_PATH_PATTERNS[1].test(path) || RELEVANT_PATH_PATTERNS[2].test(path)
     const isParameters = PARAMETERS_PATHS.includes(path)
-    if (!isFlow && !isScript && !isParameters) continue
+    if (!isScript && !isParameters) continue
 
     const content = entry.getData().toString('utf8')
     if (totalBytes + content.length > MAX_TOTAL_BYTES) continue
     totalBytes += content.length
 
-    if (isFlow) flowXml.push({ path, content })
-    else if (isScript) scripts.push({ path, content })
+    if (isScript) scripts.push({ path, content })
     else parameters.push({ path, content })
   }
 
@@ -156,6 +172,25 @@ function repairMissingDiagramEdges(iflwContent) {
   return iflwContent.replace('</bpmndi:BPMNPlane>', `${newEdgesXml}</bpmndi:BPMNPlane>`)
 }
 
+// La IA a veces omite la etiqueta de cierre "</ifl:property>" al escribir una property cuyo
+// "value" es un texto largo con comillas anidadas (visto especificamente con "wrapContent"
+// conteniendo un JSON literal tipo {"campo": "${property.x}", ...}) — probablemente pierde la
+// cuenta de las etiquetas al generar una cadena tan cargada de comillas escapadas. El resultado
+// es un XML MAL FORMADO (no un simple error de validacion de negocio como el resto de repairs de
+// este fichero): el editor grafico ni siquiera consigue ABRIR el iflow ("no me abre el iflow"),
+// a diferencia de "Name is null" que si abre pero falla la validacion. Verificado con un diseno
+// real: dos "wrapContent" identicos en forma (JSON con varios "${property.X}") se generaron sin
+// su "</ifl:property>", dejando 2 "unexpected close tag" al parsear el .iflw completo. Se
+// detecta cualquier "<ifl:property>...<key>...<value>...</value>" que NO vaya seguido de su
+// cierre y se le anade — debe correr ANTES que el resto de repairs de este fichero, ya que estos
+// asumen properties bien formadas al buscar "ya existe esta key?" con regex.
+function repairUnclosedPropertyTags(iflwContent) {
+  return iflwContent.replace(
+    /<ifl:property>\s*<key>[^<]*<\/key>\s*(?:<value\s*\/>|<value>[\s\S]*?<\/value>)(?!\s*<\/ifl:property>)/g,
+    match => `${match}</ifl:property>`
+  )
+}
+
 // Cada adaptador (messageFlow) de la libreria de referencia (ai-iflow-components.js) incluye
 // SIEMPRE una property "Name" (la etiqueta visible del adaptador en el panel de configuracion
 // real) — verificado que la IA a veces la omite en disenos grandes: un diseno real generado por
@@ -210,13 +245,49 @@ function buildAdapterReferenceIndex() {
     if (!componentType) continue
     const key = `${componentType}::${messageProtocol || ''}::${direction || ''}`
     const props = {}
-    const propRe = /<key>([^<]+)<\/key>\s*<value>([^<]*)<\/value>/g
+    // <value/> autocerrado ademas de <value>texto</value>, e incluir TAMBIEN las keys con valor
+    // vacio (no solo las truthy): mismo fallo ya corregido en buildIFlowConfigReference — un
+    // adaptador de referencia real (Mail) trae ~15 properties intencionalmente vacias por defecto
+    // (to, subject, from, server, bcc...) que el regex anterior no reconocia en absoluto, dejando
+    // esas keys COMPLETAMENTE AUSENTES del generado en vez de presentes-pero-vacias. La ausencia
+    // total (no solo el valor vacio) ya se ha visto causando "NullPointerException: Name is null"
+    // al abrir el iflow (el editor no encuentra el elemento del que sacar la etiqueta visible del
+    // campo) — no solo en el bloque de "Integration Flow Configuration" sino tambien aqui, en
+    // adaptadores.
+    const propRe = /<key>([^<]+)<\/key>\s*(?:<value\s*\/>|<value>([^<]*)<\/value>)/g
     let pm
-    while ((pm = propRe.exec(flowMatch[0]))) if (pm[2]) props[pm[1]] = pm[2]
+    while ((pm = propRe.exec(flowMatch[0]))) props[pm[1]] = pm[2] || ''
     index[key] = props
+    // Indice de respaldo, mas laxo (solo ComponentType::direction, "primero gana"): hace falta
+    // porque a veces la IA omite el propio MessageProtocol (no solo otras properties), y sin el
+    // no hay forma de construir la clave exacta de arriba — verificado con un diseno real donde
+    // varios messageFlow (HTTP, SuccessFactors, Mail) se quedaban con solo 8 properties genericas
+    // sin reparar porque MessageProtocol faltaba del todo, mientras que otros del mismo diseno
+    // con MessageProtocol presente si se reparaban bien. Ambiguo si hay variantes distintas del
+    // mismo ComponentType+direction (p.ej. SuccessFactors OData vs SOAP) — para esos casos el
+    // resultado puede no ser el correcto, pero sigue siendo mejor que dejar el adaptador a medias
+    // con properties nulas.
+    const looseKey = `${componentType}::${direction || ''}`
+    if (!(looseKey in ADAPTER_REFERENCE_LOOSE_INDEX)) ADAPTER_REFERENCE_LOOSE_INDEX[looseKey] = props
+    // Indice de respaldo AUN mas laxo (solo ComponentType, "primero gana"): verificado con un
+    // diseno real (Mail) donde la IA genero un messageFlow con SOLO 8 properties genericas,
+    // faltando MessageProtocol Y direction A LA VEZ desde el principio — ni la clave estricta
+    // (ComponentType::MessageProtocol::direction) ni la laxa de arriba (ComponentType::direction)
+    // pueden construirse sin esos mismos valores que faltan (problema de "huevo y gallina": las
+    // properties que hacen falta para ENCONTRAR la referencia son justo las que faltan en el
+    // generado). Sin este ultimo nivel, el backfill se queda mudo y el adaptador se despliega con
+    // un tercio de sus properties reales, causando "NullPointerException: Name is null" al abrir
+    // el iflow en el editor grafico — verificado en un diseno real (Mail Receiver, ComponentType
+    // sin MessageProtocol/direction). Igual de ambiguo que el resto de indices laxos si hay varias
+    // variantes del mismo ComponentType en la libreria (aqui no es el caso de Mail: solo hay un
+    // mail-receiver.xml — el ambiguo, mail-sender-imap.xml/mail-sender-pop3.xml, es Sender, no
+    // Receiver, y no comparte ComponentType con el caso de "enviar" que motiva este fallback).
+    if (!(componentType in ADAPTER_REFERENCE_COMPONENT_TYPE_INDEX)) ADAPTER_REFERENCE_COMPONENT_TYPE_INDEX[componentType] = props
   }
   return index
 }
+const ADAPTER_REFERENCE_LOOSE_INDEX = {}
+const ADAPTER_REFERENCE_COMPONENT_TYPE_INDEX = {}
 const ADAPTER_REFERENCE_INDEX = buildAdapterReferenceIndex()
 
 // Red de seguridad general: la IA ha demostrado (en varias generaciones reales del mismo
@@ -236,11 +307,22 @@ function repairIncompleteAdapterProperties(iflwContent) {
       const componentType = (body.match(/<key>ComponentType<\/key>\s*<value>([^<]*)<\/value>/) || [])[1]
       const messageProtocol = (body.match(/<key>MessageProtocol<\/key>\s*<value>([^<]*)<\/value>/) || [])[1]
       const direction = (body.match(/<key>direction<\/key>\s*<value>([^<]*)<\/value>/) || [])[1]
-      const refProps = componentType && ADAPTER_REFERENCE_INDEX[`${componentType}::${messageProtocol || ''}::${direction || ''}`]
+      const refProps = componentType && (
+        ADAPTER_REFERENCE_INDEX[`${componentType}::${messageProtocol || ''}::${direction || ''}`] ||
+        ADAPTER_REFERENCE_LOOSE_INDEX[`${componentType}::${direction || ''}`] ||
+        ADAPTER_REFERENCE_COMPONENT_TYPE_INDEX[componentType]
+      )
       if (!refProps) return full
 
+      // Comprobacion "ya existe?" insensible a mayusculas/minusculas: verificado con un diseno
+      // real donde la IA genero "serverTrace" (minuscula, en el bloque de "Integration Flow
+      // Configuration") y una version sensible a mayusculas de este mismo filtro, al comparar
+      // contra "ServerTrace" (grafia real de la referencia), no la reconocio como la misma y
+      // anadio una SEGUNDA property duplicada solo por el casing — causando
+      // "NullPointerException: Name is null" al abrir el iflow. Aplica igual aqui por si algun
+      // adaptador tiene el mismo problema de casing en alguna de sus properties.
       const missingProps = Object.entries(refProps)
-        .filter(([key]) => !new RegExp(`<key>${key}</key>`).test(body))
+        .filter(([key]) => !new RegExp(`<key>${key}</key>`, 'i').test(body))
         .map(([key, value]) => `<ifl:property><key>${key}</key><value>${value}</value></ifl:property>`)
       if (!missingProps.length) return full
 
@@ -273,9 +355,11 @@ function buildFlowStepReferenceIndex() {
     const cnameMatch = cmdVariantUri && cmdVariantUri.match(/cname::([^/]+)/)
     if (!cnameMatch) continue
     const props = {}
-    const propRe = /<key>([^<]+)<\/key>\s*<value>([^<]*)<\/value>/g
+    // <value/> autocerrado incluido, mismo fallo que en buildAdapterReferenceIndex/
+    // buildIFlowConfigReference: una key con valor vacio por defecto quedaba totalmente ausente.
+    const propRe = /<key>([^<]+)<\/key>\s*(?:<value\s*\/>|<value>([^<]*)<\/value>)/g
     let pm
-    while ((pm = propRe.exec(stepMatch[0]))) if (pm[2]) props[pm[1]] = pm[2]
+    while ((pm = propRe.exec(stepMatch[0]))) props[pm[1]] = pm[2] || ''
     index[cnameMatch[1]] = props
   }
   return index
@@ -292,7 +376,7 @@ function repairIncompleteFlowStepProperties(iflwContent) {
       if (!refProps) return full
 
       const missingProps = Object.entries(refProps)
-        .filter(([key]) => !new RegExp(`<key>${key}</key>`).test(body))
+        .filter(([key]) => !new RegExp(`<key>${key}</key>`, 'i').test(body))
         .map(([key, value]) => `<ifl:property><key>${key}</key><value>${value}</value></ifl:property>`)
       if (!missingProps.length) return full
 
@@ -300,6 +384,155 @@ function repairIncompleteFlowStepProperties(iflwContent) {
       return `<bpmn2:${tag} ${openAttrs}>${newBody}</bpmn2:${tag}>`
     }
   )
+}
+
+// Para escribir (upsert) en SuccessFactors, el valor valido de "Operation Details" es
+// "Upsert(UPSERT)" — confirmado registrandolo a mano en el editor grafico real y descargando el
+// .iflw resultante para verificarlo (varios intentos previos con "Upsert(PUT)"/"Upsert(POST)"/
+// "Upsert (POST)"/"Upsert" a secas fallaron todos: a diferencia de "Query(GET)", donde el
+// sufijo es el verbo HTTP, aqui el sufijo es el propio nombre de la operacion OData en
+// mayusculas, no un verbo HTTP). La IA (y el propio componente de referencia
+// successfactors-odata-receiver.xml, que solo trae un ejemplo de lectura "Query(GET)") genera
+// "Upsert(PUT)" para el paso de actualizar el monitor de replica, que SAP rechaza.
+function repairSuccessFactorsUpsertOperation(iflwContent) {
+  return iflwContent.replace(/<key>operation<\/key>\s*<value>Upsert[^<]*<\/value>/g, '<key>operation</key><value>Upsert(UPSERT)</value>')
+}
+
+// El unico valor de "Authentication" verificado como valido para el adaptador SuccessFactors en
+// este tenant es "Basic" (el que trae el propio componente de referencia
+// successfactors-odata-receiver.xml) — verificado con un diseno real donde la IA genero
+// "OAuth2SAMLBearerAssertion" para una llamada de consulta (Query), fallando el build con
+// "Invalid value 'OAuth2SAMLBearerAssertion' entered in 'Authentication' field". Se corrige
+// cualquier authenticationMethod de un messageFlow SuccessFactors que NO sea "Basic".
+function repairSuccessFactorsAuthMethod(iflwContent) {
+  return iflwContent.replace(
+    /<bpmn2:messageFlow\s+[^>]*?>[\s\S]*?<\/bpmn2:messageFlow>/g,
+    block => {
+      if (!/<key>ComponentType<\/key>\s*<value>SuccessFactors<\/value>/.test(block)) return block
+      return block.replace(/<key>authenticationMethod<\/key>\s*<value>(?!Basic<)[^<]*<\/value>/, '<key>authenticationMethod</key><value>Basic</value>')
+    }
+  )
+}
+
+// SuccessFactors con paginacion server-side ("paging: snapshot") necesita "HTTP Session Reuse"
+// activado a nivel de IFLOW (seccion "Runtime Configuration" del editor grafico, NO una property
+// del propio adaptador) o SAP rechaza el build con "You need to enable HTTP session reuse for
+// SuccessFactors server side paging" — confirmado activandolo a mano en el editor real y
+// comparando el .iflw resultante: la property de colaboracion "httpSessionHandling" pasa de
+// "None" a "onExchange".
+function repairSuccessFactorsSessionReuse(iflwContent) {
+  // Antes se comprobaba con un solo regex "ComponentType...paging" a distancia <2000 caracteres
+  // del documento ENTERO, asumiendo que ComponentType aparece siempre ANTES que paging dentro del
+  // messageFlow — verificado con un diseno real que el orden de las properties generadas por la
+  // IA no es fijo (paging aparecio ANTES que ComponentType), haciendo que el regex nunca
+  // matcheara pese a haber 3 adaptadores SuccessFactors con paging=snapshot, dejando
+  // "httpSessionHandling" en "None" sin avisar. Se comprueba ahora messageFlow por messageFlow
+  // (mismo patron que el resto de repairs de este fichero), sin depender del orden interno.
+  const usesPagingSFSF = [...iflwContent.matchAll(/<bpmn2:messageFlow[^>]*>[\s\S]*?<\/bpmn2:messageFlow>/g)]
+    .some(m => /<key>ComponentType<\/key>\s*<value>SuccessFactors<\/value>/.test(m[0]) && /<key>paging<\/key>\s*<value>snapshot<\/value>/.test(m[0]))
+  if (!usesPagingSFSF) return iflwContent
+  if (/<key>httpSessionHandling<\/key>\s*<value>onExchange<\/value>/.test(iflwContent)) return iflwContent
+  return iflwContent.replace(
+    /<key>httpSessionHandling<\/key>\s*<value>[^<]*<\/value>/,
+    '<key>httpSessionHandling</key><value>onExchange</value>'
+  )
+}
+
+// Referencia de las properties completas del bloque "Integration Flow Configuration" (a nivel
+// de bpmn2:collaboration), leidas de la propia plantilla vacia base — esa SI esta completa y
+// verificada (es el punto de partida de cualquier iflow de este proyecto).
+function buildIFlowConfigReference() {
+  if (!fs.existsSync(TEMPLATE_PATH)) return {}
+  const zip = new AdmZip(fs.readFileSync(TEMPLATE_PATH))
+  const flowDir = 'src/main/resources/scenarioflows/integrationflow/'
+  const flowEntry = zip.getEntries().find(e => e.entryName.startsWith(flowDir) && e.entryName.endsWith('.iflw'))
+  if (!flowEntry) return {}
+  const content = flowEntry.getData().toString('utf8')
+  const collabMatch = content.match(/<bpmn2:collaboration[^>]*>[\s\S]*?<bpmn2:extensionElements>([\s\S]*?)<\/bpmn2:extensionElements>/)
+  if (!collabMatch) return {}
+  const props = {}
+  // <value/> autocerrado, ademas de <value>texto</value>: la plantilla base deja varias
+  // properties OPCIONALES sin valor por defecto (privateKeyAlias, traceLevel, namespaceMapping,
+  // errorStrategy, allowedHeaderList) como <value/> autocerrado — el regex anterior solo
+  // reconocia la forma <value>texto</value>, asi que ni siquiera llegaba a intentar matchear
+  // estas 5 keys, dejandolas FUERA de la referencia por completo (no solo con valor vacio).
+  // Verificado que su AUSENCIA total (no solo el valor vacio) en un iflow generado era una causa
+  // mas, no detectada hasta ahora, del mismo "NullPointerException: Name is null" en el editor
+  // grafico — el screen "Integration Flow Configuration" itera sobre las 12 keys que conoce y
+  // falla al construir el formulario si el elemento no existe en absoluto para alguna, no solo si
+  // su valor esta vacio.
+  const propRe = /<key>([^<]+)<\/key>\s*(?:<value\s*\/>|<value>([^<]*)<\/value>)/g
+  let pm
+  while ((pm = propRe.exec(collabMatch[1]))) props[pm[1]] = pm[2] || ''
+  return props
+}
+const IFLOW_CONFIG_REFERENCE = buildIFlowConfigReference()
+
+// Red de seguridad para "Integration Flow Configuration" (el bloque de properties a nivel de
+// bpmn2:collaboration, section "Runtime Configuration" del editor) — mismo problema ya visto en
+// adaptadores y pasos de flujo, esta vez a nivel global del iflow: verificado con un diseno real
+// donde la IA dejo el bloque con solo 3 properties (cmdVariantUri/componentVersion/
+// httpSessionHandling) en vez de las ~10 que trae la plantilla base, causando
+// "NullPointerException: Name is null" localizado por el propio editor en "Integration Flow
+// Configuration" al abrir el iflow. Rellena cualquier property presente en la plantilla base
+// pero ausente en el generado (nunca pisa las que la IA SI puso, como httpSessionHandling si ya
+// esta en "onExchange" por repairSuccessFactorsSessionReuse).
+// La IA puede generar la MISMA property dos veces con distinto casing dentro del mismo bloque
+// (p.ej. "serverTrace" Y "ServerTrace" a la vez) — verificado con un diseno real que causaba
+// "NullPointerException: Name is null" al abrir el iflow. Se queda con la PRIMERA aparicion de
+// cada clave (case-insensitive) y descarta el resto.
+function dedupeCaseVariantProperties(body) {
+  const seen = new Set()
+  return body.replace(/<ifl:property>\s*<key>([^<]+)<\/key>[\s\S]*?<\/ifl:property>\s*/g, (full, key) => {
+    const lower = key.toLowerCase()
+    if (seen.has(lower)) return ''
+    seen.add(lower)
+    return full
+  })
+}
+
+// "ServerTrace" es la UNICA key de todo este bloque que no empieza en minuscula (todas las
+// demas siguen camelCase normal: cmdVariantUri, componentVersion, httpSessionHandling,
+// corsEnabled...) — verificado que la IA la "normaliza" sistematicamente a "serverTrace" para
+// seguir el patron del resto, sin que esto rompa el build (SAP no lo valida ahi) pero SI rompe
+// el editor grafico: la key con casing incorrecto no se reconoce en el lookup interno de SAP
+// (case-sensitive) al construir la pantalla "Integration Flow Configuration", devolviendo
+// "NullPointerException: Name is null" al no encontrar la etiqueta visible de esa property. La
+// comprobacion "ya existe?" de repairIncompleteIFlowConfiguration es deliberadamente
+// case-insensitive (evita anadir una SEGUNDA copia con casing distinto), pero por eso mismo NUNCA
+// corregia el casing incorrecto si ya habia una unica copia mal escrita — se soluciona aqui
+// reescribiendo cualquier variante de casing a la key exacta de la referencia ANTES del dedupe
+// (para que, si la IA llegara a generar ambas grafias a la vez, el dedupe posterior las trate
+// como una autentica duplicada y se quede con una sola).
+function normalizeReferenceKeyCasing(body) {
+  for (const canonicalKey of Object.keys(IFLOW_CONFIG_REFERENCE)) {
+    const re = new RegExp(`<key>${canonicalKey}</key>`, 'ig')
+    body = body.replace(re, `<key>${canonicalKey}</key>`)
+  }
+  return body
+}
+
+function repairIncompleteIFlowConfiguration(iflwContent) {
+  const collabMatch = iflwContent.match(/<bpmn2:collaboration[^>]*>[\s\S]*?<bpmn2:extensionElements>([\s\S]*?)<\/bpmn2:extensionElements>/)
+  if (!collabMatch) return iflwContent
+  let body = collabMatch[1]
+  const normalizedBody = normalizeReferenceKeyCasing(body)
+  const dedupedBody = dedupeCaseVariantProperties(normalizedBody)
+  if (dedupedBody !== body) {
+    const idx0 = iflwContent.indexOf(body)
+    if (idx0 !== -1) iflwContent = iflwContent.slice(0, idx0) + dedupedBody + iflwContent.slice(idx0 + body.length)
+    body = dedupedBody
+  }
+  const missingProps = Object.entries(IFLOW_CONFIG_REFERENCE)
+    .filter(([key]) => !new RegExp(`<key>${key}</key>`, 'i').test(body))
+    .map(([key, value]) => `<ifl:property><key>${key}</key><value>${value}</value></ifl:property>`)
+  if (!missingProps.length) return iflwContent
+  const newBody = body + missingProps.join('')
+  // indexOf/slice en vez de .replace(body, ...): body puede contener "$" y String.replace
+  // interpreta patrones especiales ($&, $$...) en el segundo argumento si se usa como string.
+  const idx = iflwContent.indexOf(body)
+  if (idx === -1) return iflwContent
+  return iflwContent.slice(0, idx) + newBody + iflwContent.slice(idx + body.length)
 }
 
 // SAP no admite espacios NI puntos en el "name" de un participante Sender/Receiver — verificado
@@ -321,20 +554,45 @@ function repairParticipantNameWhitespace(iflwContent) {
   })
 }
 
+// Mismo problema que repairParticipantNameWhitespace, pero para la property "Name" DENTRO del
+// propio messageFlow — es un campo DISTINTO del atributo name= del messageFlow (ese ya lo
+// deduplica repairDuplicateChannelNames) y del name= del participante: esta es la etiqueta que
+// SAP muestra literalmente como "Name" en el panel de configuracion del adaptador Sender/Receiver
+// (el mismo concepto de "nombre de conexion" que ya rechazaba espacios en el participante).
+// Verificado con un diseno real donde el atributo name= del messageFlow ya estaba deduplicado y
+// limpio ("SuccessFactors_1", "HTTP_1"...) pero la property interna seguia con el valor original
+// de la IA sin sanear ("SuccessFactors Monitor", "HTTP Login", "HTTP TimeOff Alta"...). Mismo
+// criterio de saneo (cualquier caracter que no sea letra/numero/"_" pasa a "_").
+function repairAdapterNamePropertyWhitespace(iflwContent) {
+  return iflwContent.replace(
+    /<bpmn2:messageFlow\s+[^>]*>[\s\S]*?<\/bpmn2:messageFlow>/g,
+    block => block.replace(/<key>Name<\/key>\s*<value>([^<]*)<\/value>/, (full, name) => {
+      const sanitized = name.replace(/[^\p{L}\p{N}_]+/gu, '_').replace(/^_+|_+$/g, '')
+      if (sanitized === name) return full
+      return `<key>Name</key><value>${sanitized}</value>`
+    })
+  )
+}
+
 // SAP no admite que dos interfaces (messageFlow) que apuntan al MISMO Receiver compartan el
-// mismo nombre de canal (name=) NI el mismo alias de conexion (property "system") — verificado
-// con un diseno real donde 3 llamadas a "SFSF Test" se llamaban las 3 "SuccessFactors" con
-// system="Receiver9" (la IA usa el ComponentType/un ejemplo generico para ambos, sin
-// diferenciarlas), fallando el build con "Same channel name cannot be specified for a system
-// having multiple interfaces" repetido. El propio repairIncompleteAdapterProperties puede
-// CAUSAR esta segunda colision (rellena "system" con el mismo valor de ejemplo de la referencia
-// en cada copia) — por eso esta funcion debe correr DESPUES de esa, no antes. Se numeran solo
-// las que realmente colisionan (mismo targetRef + mismo valor), dejando intacto el resto.
+// mismo nombre de canal (name=) NI el mismo alias de conexion (property "system") NI la misma
+// etiqueta visible (property "Name", la que se ve en el panel de configuracion del adaptador) —
+// verificado con dos disenos reales: uno donde 3 llamadas a "SFSF Test" se llamaban las 3
+// "SuccessFactors" con system="Receiver9" (la IA usa el ComponentType/un ejemplo generico para
+// ambos, sin diferenciarlas), y otro DISTINTO donde name= y system YA estaban bien
+// deduplicados (SuccessFactors_1/2/3, Receiver9_1/2/3) pero la property "Name" seguia repetida
+// tal cual ("SuccessFactors" x3, "HTTP" x4, "Mail" x2) porque nunca se cubria — ambos fallan con
+// el mismo "Same channel name cannot be specified for a system having multiple interfaces". El
+// propio repairIncompleteAdapterProperties puede CAUSAR estas colisiones (rellena "system"/"Name"
+// con el mismo valor de ejemplo de la referencia en cada copia) — por eso esta funcion debe correr
+// DESPUES de esa, no antes. Se numeran solo las que realmente colisionan (mismo targetRef + mismo
+// valor), dejando intacto el resto.
 function repairDuplicateChannelNames(iflwContent) {
   let result = iflwContent
   result = dedupeMessageFlowAttr(result, 'name', (attrs) => getAttr(attrs, 'name'),
     (attrs, newVal) => attrs.replace(/\bname="[^"]*"/, `name="${newVal}"`))
   result = dedupeMessageFlowProperty(result, 'system')
+  result = dedupeMessageFlowProperty(result, 'Name')
   return result
 }
 
@@ -373,7 +631,7 @@ function dedupeMessageFlowAttr(iflwContent, attrName, getValue, setValue) {
 }
 
 function dedupeMessageFlowProperty(iflwContent, key) {
-  const propRe = new RegExp(`<key>${key}</key>\\s*<value>([^<]*)</value>`)
+  const propRe = new RegExp(`<key>${key}</key>\\s*<value>([^<]*)</value>`, 'i')
   // El valor de una property (a diferencia de un atributo XML) no esta en la etiqueta de
   // apertura sino en el cuerpo del messageFlow, asi que hace falta el bloque completo, no solo attrs.
   const flows = []
@@ -424,6 +682,135 @@ function repairMissingMailServer(iflwContent) {
       const newProp = `<ifl:property><key>server</key><value>smtp.example.com</value></ifl:property>`
       const newBody = body.replace('<bpmn2:extensionElements>', `<bpmn2:extensionElements>${newProp}`)
       return `<bpmn2:messageFlow ${openAttrs}>${newBody}</bpmn2:messageFlow>`
+    }
+  )
+}
+
+// A veces la IA declara un parametro externalizado (parameters.propdef + parameters.prop) pero
+// se olvida de referenciarlo realmente en el propio .iflw con la sintaxis "{{nombre}}" en alguna
+// property de un paso — el parametro queda "huerfano": declarado pero sin ningun sitio del flujo
+// que lo use. Verificado con un diseno real ("completo"): parameters.propdef declaraba
+// "person_id_external" (con su entrada correspondiente, vacia, en parameters.prop) pero el .iflw
+// no lo referenciaba en ningun punto ("{{person_id_external}}" no aparecia en absoluto), mientras
+// que "timerSchedule" si estaba bien enlazado. La pantalla "Integration Flow Configuration" del
+// editor grafico (la que construye el formulario para rellenar cada parametro externalizado)
+// fallaba con "NullPointerException: Name is null" precisamente al intentar construir el campo
+// de ese parametro huerfano — no hay ningun property enlazado en el flujo del que sacar su
+// nombre/etiqueta visible. Se eliminan del propdef/prop los parametros declarados que no aparecen
+// referenciados en el .iflw — mas seguro que intentar adivinar donde deberia haberse usado.
+// A diferencia del resto de funciones "repair*" de este fichero, esta opera sobre la lista
+// completa de ficheros (necesita ver el .iflw Y el propdef/prop a la vez), no sobre un solo
+// contenido de string.
+function repairOrphanedExternalizedParameters(files) {
+  const flowFile = files.find(f => f.path.endsWith('.iflw'))
+  if (!flowFile) return files
+  const usedParams = new Set([...flowFile.content.matchAll(/\{\{([^}]+)\}\}/g)].map(m => m[1]))
+
+  return files.map(f => {
+    if (f.path.endsWith('parameters.propdef')) {
+      const newContent = f.content.replace(/<parameter>[\s\S]*?<\/parameter>\s*/g, block => {
+        const nameMatch = block.match(/<name>([^<]*)<\/name>/)
+        if (!nameMatch || usedParams.has(nameMatch[1])) return block
+        return ''
+      })
+      return newContent === f.content ? f : { ...f, content: newContent }
+    }
+    if (f.path.endsWith('parameters.prop')) {
+      const newContent = f.content.split('\n').filter(line => {
+        const m = line.match(/^([^#=]+)=/)
+        return !m || usedParams.has(m[1].trim())
+      }).join('\n')
+      return newContent === f.content ? f : { ...f, content: newContent }
+    }
+    return f
+  })
+}
+
+// Cada exclusiveGateway ("Router") con mas de una salida necesita un atributo "default=" que
+// apunte a UNA de sus propias sequenceFlow salientes (el campo "Default Route" del panel de
+// configuracion real) — verificado con un diseno real ("completo"): 5 de sus 6 gateways generaron
+// una salida "Default" sin conditionExpression + el atributo default= apuntando a ella, pero el
+// sexto (logica de 3 ramas "alta / cancelacion / modificacion" forzada en un gateway binario) se
+// quedo con AMBAS salidas condicionadas y sin default= en absoluto — inconsistente con el resto
+// del mismo diseno. Sin esa referencia el editor grafico no tiene ninguna ruta de reserva que
+// mostrar en "Default Route", encajando con el patron ya visto varias veces en este proyecto de
+// "NullPointerException: Name is null" por una referencia esperada que no existe. No inventa una
+// ruta nueva (seria adivinar la logica de negocio real) — solo marca como default la PRIMERA
+// salida existente del propio gateway que aun no tuviera ya un default= asignado.
+function repairMissingGatewayDefault(iflwContent) {
+  const flowsBySource = {}
+  const seqFlowRe = /<bpmn2:sequenceFlow\s+([^>]*?)(?:\/>|>)/g
+  let m
+  while ((m = seqFlowRe.exec(iflwContent))) {
+    const id = getAttr(m[1], 'id')
+    const source = getAttr(m[1], 'sourceRef')
+    if (id && source) (flowsBySource[source] = flowsBySource[source] || []).push(id)
+  }
+  return iflwContent.replace(/<bpmn2:exclusiveGateway\s+([^>]*?)>/g, (full, attrs) => {
+    if (getAttr(attrs, 'default')) return full
+    const id = getAttr(attrs, 'id')
+    const outgoing = id && flowsBySource[id]
+    if (!outgoing || !outgoing.length) return full
+    return `<bpmn2:exclusiveGateway ${attrs} default="${outgoing[0]}">`
+  })
+}
+
+// El lenguaje de expresiones de condicion de un Router en SAP CPI usa "=" para igualdad, NO "=="
+// (estilo Java/JS) — verificado con un diseno real donde la IA genero TODAS las condiciones de
+// gateway como "${property.x} == 'true'", fallando el editor grafico con "Token '==' not
+// supported after the token '${property.x}' in condition. Expected tokens: [=, !=, >, >=, <, <=,
+// contains, not, in, regex]" para cada una. Se sustituye "==" por "=" SOLO dentro del texto de
+// cada "bpmn2:conditionExpression" (no en todo el documento, para no tocar nada mas).
+function repairConditionExpressionOperator(iflwContent) {
+  return iflwContent.replace(
+    /(<bpmn2:conditionExpression[^>]*>)([^<]*)(<\/bpmn2:conditionExpression>)/g,
+    (full, open, text, close) => `${open}${text.replace(/==/g, '=')}${close}`
+  )
+}
+
+// Una fila de "propertyTable"/"headerTable" (Content Modifier) con "Type"="xpath" (extraer un
+// valor del mensaje de entrada, a diferencia de "constant") necesita SIEMPRE su celda "Datatype"
+// rellena — a diferencia de "constant", donde SAP acepta "Datatype" vacio (asi lo trae el propio
+// componente de referencia content-modifier.xml). Verificado con un diseno real: 5 filas type=xpath
+// con Datatype vacio fallaban en el editor grafico con "Datatype not defined in row N of type
+// xpath for Content Modifier step", una por cada fila. Se rellena con "String" — valor por
+// defecto razonable para extraer texto via XPath; si algun caso necesitara Integer/Date en vez de
+// String tendria que ajustarse a mano, pero es mejor un tipo generico presente que el campo vacio.
+function repairXpathRowMissingDatatype(iflwContent) {
+  return iflwContent.replace(
+    /(<key>(?:propertyTable|headerTable)<\/key>\s*<value>)([^<]*)(<\/value>)/g,
+    (full, open, tableText, close) => {
+      const fixed = tableText.replace(
+        /(&lt;row&gt;(?:(?!&lt;\/row&gt;)[\s\S])*?&lt;cell id='Type'&gt;xpath&lt;\/cell&gt;(?:(?!&lt;\/row&gt;)[\s\S])*?&lt;cell id='Datatype'&gt;)&lt;\/cell&gt;/g,
+        `$1String&lt;/cell&gt;`
+      )
+      return `${open}${fixed}${close}`
+    }
+  )
+}
+
+// El campo real que SAP valida como obligatorio en un paso Data Store (Get/Put/Select/Delete,
+// activityType=DBstorage) es "storageName" ("Data Store Name" en el editor) — presente en TODOS
+// los componentes de referencia (get/put/select/delete). El paso "Get" ademas trae un SEGUNDO
+// campo, "dataStoreId", que tambien esta vacio por defecto en la referencia. Verificado con un
+// diseno real: la IA relleno "dataStoreId" con el nombre correcto del data store en el paso Get,
+// pero dejo "storageName" vacio (el campo que SAP realmente exige), fallando el build con
+// "'Data Store Name' cannot be empty" pese a que el paso Put del MISMO diseno si tenia
+// "storageName" bien relleno. Si "storageName" esta vacio pero "dataStoreId" tiene valor, se
+// asume que ambos debian referenciar el mismo data store y se copia el valor.
+function repairDataStoreNameFromId(iflwContent) {
+  return iflwContent.replace(
+    /<bpmn2:callActivity\s+[^>]*?>[\s\S]*?<\/bpmn2:callActivity>/g,
+    block => {
+      if (!/<key>activityType<\/key>\s*<value>DBstorage<\/value>/.test(block)) return block
+      const storageNameEmpty = /<key>storageName<\/key>\s*<value>\s*<\/value>|<key>storageName<\/key>\s*<value\s*\/>/.test(block)
+      if (!storageNameEmpty) return block
+      const dataStoreId = (block.match(/<key>dataStoreId<\/key>\s*<value>([^<]+)<\/value>/) || [])[1]
+      if (!dataStoreId) return block
+      return block.replace(
+        /<key>storageName<\/key>\s*<value>\s*<\/value>|<key>storageName<\/key>\s*<value\s*\/>/,
+        `<key>storageName</key><value>${dataStoreId}</value>`
+      )
     }
   )
 }
@@ -550,6 +937,79 @@ async function deployArtifact(system, artifactId) {
   )
 }
 
+// Verificacion final de que el .iflw sigue siendo XML bien formado tras aplicar toda la cadena de
+// repairs — visto en un diseno real que la IA puede dejar una <ifl:property> sin su cierre (texto
+// largo con comillas anidadas en "wrapContent"), lo que produce un XML mal formado que ni el
+// editor grafico de Integration Suite consigue abrir, sin ningun aviso previo en la app. Aunque
+// repairUnclosedPropertyTags ya cubre el caso concreto visto, esto es una red de seguridad
+// general: si CUALQUIER otro defecto de generacion (conocido o no) deja el XML mal formado, se
+// bloquea aqui el guardado/despliegue con un mensaje claro en vez de dejar pasar un iflow roto.
+function findXmlWellFormednessErrors(xml) {
+  const parser = new SaxesParser({ xmlns: true })
+  const errors = []
+  parser.on('error', e => errors.push(e.message))
+  parser.write(xml).close()
+  return errors
+}
+
+// Verificacion final de que el .iflw es INTERNAMENTE CONSISTENTE como diagrama BPMN2/SAP, mas
+// alla de ser XML bien formado — un documento puede ser XML perfectamente valido y aun asi tener
+// referencias colgantes (un sourceRef/targetRef/incoming/outgoing que apunta a un id que no
+// existe, una BPMNShape/BPMNEdge duplicada para el mismo elemento, un paso sin ninguna BPMNShape)
+// que hacen que Integration Suite falle al desplegar o al abrir el editor grafico con mensajes
+// tan poco especificos como "Error while loading the details of the integration flow" o
+// "NullPointerException: Name is null" — verificado DOS VECES en esta misma sesion con disenos
+// reales donde el .iflw pasaba la verificacion de XML bien formado pero tenia una referencia
+// colgante introducida por un repair anterior. A diferencia de las funciones "repair*" de este
+// fichero (que corrigen lo que SI se puede corregir con confianza, como una property vacia o un
+// nombre con espacios), esto NO intenta arreglar nada — no hay forma segura de adivinar cual
+// deberia ser la referencia correcta — solo detecta y bloquea, con el mismo criterio que la
+// comprobacion de truncamiento y la de bien-formado ya existentes: mejor un error claro en la app
+// que un iflow roto guardado silenciosamente.
+function findStructuralIntegrityErrors(iflwContent) {
+  const errors = []
+  const idCounts = {}
+  for (const m of iflwContent.matchAll(/\bid="([^"]+)"/g)) idCounts[m[1]] = (idCounts[m[1]] || 0) + 1
+  const allIds = new Set(Object.keys(idCounts))
+  for (const [id, c] of Object.entries(idCounts)) if (c > 1) errors.push(`ID duplicado: "${id}" (${c} veces)`)
+
+  for (const m of iflwContent.matchAll(/\b(sourceRef|targetRef|bpmnElement)="([^"]+)"/g)) {
+    if (!allIds.has(m[2])) errors.push(`Referencia colgante (${m[1]}): "${m[2]}" no existe como id`)
+  }
+  for (const m of iflwContent.matchAll(/<bpmn2:(incoming|outgoing)>([^<]+)<\/bpmn2:\1>/g)) {
+    if (!allIds.has(m[2])) errors.push(`Referencia colgante (${m[1]}): "${m[2]}" no existe como id`)
+  }
+
+  const shapeElementRefs = new Set()
+  const shapeIds = new Set()
+  const shapeCounts = {}
+  for (const m of iflwContent.matchAll(/<bpmndi:BPMNShape\s+([^>]*?)>/g)) {
+    const ref = getAttr(m[1], 'bpmnElement')
+    if (ref) { shapeElementRefs.add(ref); shapeCounts[ref] = (shapeCounts[ref] || 0) + 1 }
+    const sid = getAttr(m[1], 'id')
+    if (sid) shapeIds.add(sid)
+  }
+  for (const [ref, c] of Object.entries(shapeCounts)) if (c > 1) errors.push(`BPMNShape duplicada para "${ref}" (${c} veces)`)
+
+  const edgeCounts = {}
+  for (const m of iflwContent.matchAll(/<bpmndi:BPMNEdge\s+([^>]*?)>/g)) {
+    const ref = getAttr(m[1], 'bpmnElement')
+    if (ref) edgeCounts[ref] = (edgeCounts[ref] || 0) + 1
+    const srcEl = getAttr(m[1], 'sourceElement')
+    const tgtEl = getAttr(m[1], 'targetElement')
+    if (srcEl && !shapeIds.has(srcEl)) errors.push(`BPMNEdge con sourceElement colgante: "${srcEl}"`)
+    if (tgtEl && !shapeIds.has(tgtEl)) errors.push(`BPMNEdge con targetElement colgante: "${tgtEl}"`)
+  }
+  for (const [ref, c] of Object.entries(edgeCounts)) if (c > 1) errors.push(`BPMNEdge duplicado para "${ref}" (${c} veces)`)
+
+  for (const m of iflwContent.matchAll(/<bpmn2:(startEvent|endEvent|callActivity|serviceTask|exclusiveGateway|subProcess)\s+([^>]*?)>/g)) {
+    const id = getAttr(m[2], 'id')
+    if (id && !shapeElementRefs.has(id)) errors.push(`Elemento sin BPMNShape: ${m[1]} "${id}"`)
+  }
+
+  return errors
+}
+
 module.exports = {
   downloadIflowZip,
   extractRelevantFiles,
@@ -560,8 +1020,21 @@ module.exports = {
   repairMissingMailServer,
   repairIncompleteAdapterProperties,
   repairIncompleteFlowStepProperties,
+  repairSuccessFactorsUpsertOperation,
+  repairSuccessFactorsSessionReuse,
+  repairIncompleteIFlowConfiguration,
   repairParticipantNameWhitespace,
+  repairAdapterNamePropertyWhitespace,
   repairDuplicateChannelNames,
+  repairOrphanedExternalizedParameters,
+  repairMissingGatewayDefault,
+  repairUnclosedPropertyTags,
+  repairConditionExpressionOperator,
+  repairXpathRowMissingDatatype,
+  repairDataStoreNameFromId,
+  repairSuccessFactorsAuthMethod,
+  findXmlWellFormednessErrors,
+  findStructuralIntegrityErrors,
   buildIflowFromTemplate,
   uploadIflowZip,
   createIflowZip,

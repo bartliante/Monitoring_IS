@@ -56,3 +56,13 @@
             <bpmn2:incoming>SequenceFlow_1019</bpmn2:incoming>
             <bpmn2:outgoing>SequenceFlow_1057</bpmn2:outgoing>
         </bpmn2:callActivity>
+
+<!--
+ADVERTENCIA — CONFIRMADO CONTRA UN TENANT REAL: este componente ("Iterating Splitter", splitType=Camel)
+NO ESTÁ SOPORTADO EN ESTE TENANT bajo NINGUNA configuración — el build falla siempre con "Iterating
+Splitter not supported for IFLMAP runtime" y "This component Iterating Splitter with version 1.6 is not
+supported in Cloud Integration profile", independientemente de qué rellenes en "tokenValue"/"splitExprValue".
+NO USES ESTE COMPONENTE. Usa SIEMPRE en su lugar "General Splitter" (ver splitter.xml: splitType=
+GeneralSplitter, exprType=XPath), incluso si el mensaje de entrada no es XML — funciona igual de bien para
+dividir por XPath, y es el único de los dos que sí despliega.
+-->

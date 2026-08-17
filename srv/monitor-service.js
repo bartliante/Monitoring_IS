@@ -7,7 +7,14 @@ const { translateMessageProcessingLogsQuery, criticalityForStatus } = require('.
 const {
   downloadIflowZip, extractRelevantFiles, applyFixToZip, applyFilesToZip, repairMissingDiagramEdges,
   repairMissingAdapterNames, repairMissingMailServer, repairIncompleteAdapterProperties,
-  repairParticipantNameWhitespace, repairDuplicateChannelNames, buildIflowFromTemplate,
+  repairIncompleteFlowStepProperties, repairSuccessFactorsUpsertOperation,
+  repairSuccessFactorsSessionReuse, repairIncompleteIFlowConfiguration,
+  repairParticipantNameWhitespace, repairAdapterNamePropertyWhitespace, repairDuplicateChannelNames,
+  repairOrphanedExternalizedParameters, repairMissingGatewayDefault, repairUnclosedPropertyTags,
+  repairConditionExpressionOperator, repairXpathRowMissingDatatype,
+  repairDataStoreNameFromId, repairSuccessFactorsAuthMethod,
+  findXmlWellFormednessErrors, findStructuralIntegrityErrors,
+  buildIflowFromTemplate,
   uploadIflowZip, createIflowZip, deployArtifact
 } = require('./lib/iflow-content')
 const { diagnoseAndFix } = require('./lib/ai-fix')
@@ -278,14 +285,50 @@ module.exports = cds.service.impl(async function () {
       // muestra los pasos sueltos, sin flechas que los unan. Se repara aqui, no se deja pasar.
       proposal.files = proposal.files.map(f => {
         if (!f.path.endsWith('.iflw')) return f
-        let content = repairMissingDiagramEdges(f.content)
+        // Primero: XML mal formado (tags de property sin cerrar) — el resto de repairs de abajo
+        // asumen properties bien formadas al detectar con regex si una key "ya existe".
+        let content = repairUnclosedPropertyTags(f.content)
+        content = repairMissingDiagramEdges(content)
         content = repairIncompleteAdapterProperties(content) // red general: copia de la referencia real
+        content = repairIncompleteFlowStepProperties(content) // idem para callActivity/serviceTask (Data Store, etc.)
         content = repairDuplicateChannelNames(content) // antes de repairMissingAdapterNames: que el fallback use el nombre ya deduplicado
         content = repairMissingAdapterNames(content) // fallback si la referencia no cubria el cname
         content = repairMissingMailServer(content) // fallback: la referencia de Mail trae "server" vacio
+        content = repairSuccessFactorsUpsertOperation(content) // "Upsert(PUT)" no es valido, debe ser "Upsert(UPSERT)"
+        content = repairSuccessFactorsAuthMethod(content) // solo "Basic" esta verificado como valido en este tenant
+        content = repairSuccessFactorsSessionReuse(content) // httpSessionHandling=onExchange si hay paging=snapshot en SFSF
+        content = repairDataStoreNameFromId(content) // "storageName" es el campo real, no "dataStoreId"
+        content = repairIncompleteIFlowConfiguration(content) // properties de "Integration Flow Configuration" completas
         content = repairParticipantNameWhitespace(content)
+        content = repairAdapterNamePropertyWhitespace(content)
+        content = repairMissingGatewayDefault(content)
+        content = repairConditionExpressionOperator(content)
+        content = repairXpathRowMissingDatatype(content)
         return { ...f, content }
       })
+      // Requiere ver el .iflw YA reparado (arriba) junto con parameters.propdef/.prop a la vez,
+      // no encaja en el .map() por fichero individual de arriba.
+      proposal.files = repairOrphanedExternalizedParameters(proposal.files)
+
+      // Ultima red de seguridad, en dos capas, antes de guardar/desplegar nada: primero que el
+      // .iflw siga siendo XML valido tras todos los repairs, y despues que sea internamente
+      // consistente como diagrama BPMN2/SAP (sin referencias colgantes, shapes duplicadas o pasos
+      // sin figura) — un XML perfectamente bien formado puede aun asi estar roto de esta segunda
+      // forma y hacer fallar el build o el editor grafico con mensajes tan poco especificos como
+      // "Error while loading the details of the integration flow", visto dos veces en esta sesion.
+      const flowFile = proposal.files.find(f => f.path.endsWith('.iflw'))
+      const xmlErrors = flowFile ? findXmlWellFormednessErrors(flowFile.content) : []
+      if (xmlErrors.length) {
+        return req.reject(500,
+          `La IA ha devuelto un iflow con XML mal formado (${xmlErrors[0]}) — vuelve a pulsar ` +
+          `"${mode === 'CREATE' ? 'Crear' : 'Actualizar'} Iflow", no se ha guardado nada.`)
+      }
+      const structuralErrors = flowFile ? findStructuralIntegrityErrors(flowFile.content) : []
+      if (structuralErrors.length) {
+        return req.reject(500,
+          `La IA ha devuelto un iflow estructuralmente inconsistente (${structuralErrors[0]}) — ` +
+          `vuelve a pulsar "${mode === 'CREATE' ? 'Crear' : 'Actualizar'} Iflow", no se ha guardado nada.`)
+      }
 
       const newZip = applyFilesToZip(zipBuffer, proposal.files)
 

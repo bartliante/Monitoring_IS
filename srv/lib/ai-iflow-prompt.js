@@ -103,6 +103,25 @@ normal en su lugar (más seguro, salvo que el .iflw ya tenga un Timer configurad
 otra cosa).
 - Cada canal debe tener un "Name" ÚNICO dentro del flujo — nunca repitas el mismo nombre de canal en dos \
 sitios distintos, aunque sean del mismo sistema.
+- Si añades un paso "Splitter" (dividir un mensaje en varios para procesarlos uno a uno), usa SIEMPRE la \
+variante "General Splitter" ("splitType": "GeneralSplitter", "exprType": "XPath", cmdVariantUri \
+"ctype::FlowstepVariant/cname::GeneralSplitter/version::1.6.0") — NUNCA la variante "Iterating Splitter" \
+("splitType": "Camel", cname "Camel"): esta última NO está soportada en este tenant en absoluto \
+("Iterating Splitter not supported for IFLMAP runtime" / "This component Iterating Splitter with version \
+1.6 is not supported in Cloud Integration profile"), falla el build siempre, sea cual sea su configuración. \
+Rellena SIEMPRE "splitExprValue" con la ruta XPath real por la que dividir (p. ej. "//row" o "//Ausencia") \
+basándote en la estructura REAL del mensaje que produce el paso anterior en TU propio diseño (mira qué XML \
+genera el Content Modifier o script Groovy justo antes del Splitter). Un Splitter sin esa expresión falla \
+en el editor gráfico con "Token/XPath not defined by splitter step". Si genuinamente no puedes determinar \
+la estructura del mensaje de entrada en ese punto (p. ej. porque viene de un sistema externo cuyo formato \
+no conoces), déjalo en blanco y explica en "warnings" que hay que configurarlo manualmente — no inventes \
+una expresión sin base en el diseño real.
+- Para un paso "Data Store" (Get/Put/Select/Delete, "activityType": "DBstorage"), el campo que SAP exige \
+como obligatorio es SIEMPRE "storageName" ("Data Store Name" en el editor) — en el paso "Get" existe \
+TAMBIÉN un campo "dataStoreId" que NO es el que se valida como obligatorio; rellena "storageName" en TODOS \
+los pasos Data Store del mismo diseño con EXACTAMENTE el mismo valor (el nombre del data store), no solo \
+"dataStoreId". Dejar "storageName" vacío falla el build con "'Data Store Name' cannot be empty" aunque \
+"dataStoreId" esté relleno.
 - CRÍTICO — visto causando "Error while loading the details of the integration flow" al abrir un iflow real \
 en Integration Suite (el editor no puede ni cargarlo), en un caso donde el iflow SÍ compilaba/desplegaba: \
 cada elemento del proceso (startEvent, endEvent, serviceTask, callActivity, subProcess...) que añadas o \

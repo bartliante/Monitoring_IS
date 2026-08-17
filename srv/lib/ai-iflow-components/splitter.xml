@@ -52,3 +52,12 @@
             <bpmn2:incoming>SequenceFlow_976</bpmn2:incoming>
             <bpmn2:outgoing>SequenceFlow_981</bpmn2:outgoing>
         </bpmn2:callActivity>
+
+<!--
+IMPORTANTE: "splitExprValue" (la ruta XPath real por la que dividir, p. ej. "//row" o "//Ausencia") viene
+vacío aquí a propósito — es EL DATO QUE MÁS IMPORTA de todo el componente y depende por completo de la
+estructura del mensaje que produce el paso anterior en TU diseño concreto. Rellénalo SIEMPRE con la ruta
+real (mira qué XML genera el Content Modifier/script Groovy justo antes de este Splitter) — dejarlo vacío
+hace fallar el editor gráfico con "Token/XPath not defined by splitter step". Solo si genuinamente no
+puedes determinar la estructura del mensaje de entrada, déjalo en blanco y avisa en "warnings".
+-->
